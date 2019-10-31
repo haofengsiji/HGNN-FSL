@@ -105,7 +105,7 @@ class GraphPool(nn.Module):
                 idx = torch.cat(idx+[query_idx], dim=0)
             elif tt.arg.pool_mode == 'support':
                 num_supports = num_nodes - self.num_queries
-                support_values, support_idx = torch.topk(scores, int(self.k * num_supports),largest=True)
+                support_values, support_idx = torch.topk(scores[:num_supports], int(self.k * num_supports),largest=True)
                 query_values = scores[num_supports:]
                 query_idx = torch.arange(num_nodes - self.num_queries, num_nodes).long().to(tt.arg.device)
                 values = torch.cat([support_values, query_values], dim=0)
