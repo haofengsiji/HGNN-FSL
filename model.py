@@ -152,6 +152,7 @@ class GraphPool(nn.Module):
             new_A_batch.append(new_A)
         A = torch.stack(new_A_batch,dim=0).to(tt.arg.device)
         new_X = torch.stack(new_X_batch,dim=0).to(tt.arg.device)
+        idx_batch = torch.stack(idx_batch,dim=0).to(tt.arg.device)
         return A, new_X, idx_batch
 
 class MLP(nn.Module):
