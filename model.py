@@ -60,15 +60,11 @@ class GraphUnpool(nn.Module):
         super(GraphUnpool, self).__init__()
 
     def forward(self, A, X, idx_batch):
+        # optimized by Gai
         batch = X.shape[0]
-        new_X_batch = []
-        for i in range(batch):
-            # parrallel
-            new_X = torch.zeros([A[i].shape[0], X[i].shape[1]]).to(X.device)
-            #
-            new_X[idx_batch[i]] = X[i]
-            new_X_batch.append(new_X)
-        new_X = torch.stack(new_X_batch,dim=0).to(tt.arg.device)
+        new_X = torch.zeros(batch, A.shape[1], X.shape[-1]).to(tt.arg.device)
+        new_X[torch.arange(idx_batch.shape[0]).unsqueeze(-1), idx_batch] = X
+        #
         return A, new_X
 
 class GraphPool(nn.Module):
