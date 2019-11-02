@@ -118,150 +118,50 @@ class MiniImagenetLoader(data.Dataset):
 
         return [support_data, support_label, query_data, query_label]
 
-
-
-class TieredImagenetLoader(data.Dataset):
+class TieredImagenetLoader(object):
     def __init__(self, root, partition='train'):
         self.root = root
         self.partition = partition  # train/val/test
-        #self.preprocess()
         self.data_size = [3, 84, 84]
 
         # load data
-        self.data = self.load_dataset()
+        self.data = self.load_data_pickle()
 
-        # if not self._check_exists_():
-        #     self._init_folders_()
-        #     if self.check_decompress():
-        #         self._decompress_()
-        #     self._preprocess_()
-
-
-    def get_image_paths(self, file):
-        images_path, class_names = [], []
-        with open(file, 'r') as f:
-            f.readline()
-            for line in f:
-                name, class_ = line.split(',')
-                class_ = class_[0:(len(class_)-1)]
-                path = self.root + '/tiered-imagenet/images/'+name
-                images_path.append(path)
-                class_names.append(class_)
-        return class_names, images_path
-
-    def preprocess(self):
-        print('\nPreprocessing Tiered-Imagenet images...')
-        (class_names_train, images_path_train) = self.get_image_paths('%s/tiered-imagenet/train.csv' % self.root)
-        (class_names_test, images_path_test) = self.get_image_paths('%s/tiered-imagenet/test.csv' % self.root)
-        (class_names_val, images_path_val) = self.get_image_paths('%s/tiered-imagenet/val.csv' % self.root)
-
-        keys_train = list(set(class_names_train))
-        keys_test = list(set(class_names_test))
-        keys_val = list(set(class_names_val))
-        label_encoder = {}
-        label_decoder = {}
-        for i in range(len(keys_train)):
-            label_encoder[keys_train[i]] = i
-            label_decoder[i] = keys_train[i]
-        for i in range(len(keys_train), len(keys_train)+len(keys_test)):
-            label_encoder[keys_test[i-len(keys_train)]] = i
-            label_decoder[i] = keys_test[i-len(keys_train)]
-        for i in range(len(keys_train)+len(keys_test), len(keys_train)+len(keys_test)+len(keys_val)):
-            label_encoder[keys_val[i-len(keys_train) - len(keys_test)]] = i
-            label_decoder[i] = keys_val[i-len(keys_train)-len(keys_test)]
-
-        counter = 0
-        train_set = {}
-
-        for class_, path in zip(class_names_train, images_path_train):
-            img = pil_image.open(path)
-            img = img.convert('RGB')
-            img = img.resize((84, 84), pil_image.ANTIALIAS)
-            img = np.array(img, dtype='float32')
-            if label_encoder[class_] not in train_set:
-                train_set[label_encoder[class_]] = []
-            train_set[label_encoder[class_]].append(img)
-            counter += 1
-            if counter % 1000 == 0:
-                print("Counter "+str(counter) + " from " + str(len(images_path_train)))
-
-        test_set = {}
-        for class_, path in zip(class_names_test, images_path_test):
-            img = pil_image.open(path)
-            img = img.convert('RGB')
-            img = img.resize((84, 84), pil_image.ANTIALIAS)
-            img = np.array(img, dtype='float32')
-
-            if label_encoder[class_] not in test_set:
-                test_set[label_encoder[class_]] = []
-            test_set[label_encoder[class_]].append(img)
-            counter += 1
-            if counter % 1000 == 0:
-                print("Counter " + str(counter) + " from "+str(len(class_names_test)))
-
-        val_set = {}
-        for class_, path in zip(class_names_val, images_path_val):
-            img = pil_image.open(path)
-            img = img.convert('RGB')
-            img = img.resize((84, 84), pil_image.ANTIALIAS)
-            img = np.array(img, dtype='float32')
-
-            if label_encoder[class_] not in val_set:
-                val_set[label_encoder[class_]] = []
-            val_set[label_encoder[class_]].append(img)
-            counter += 1
-            if counter % 1000 == 0:
-                print("Counter "+str(counter) + " from " + str(len(class_names_val)))
-
-        partition_count = 0
-        for item in self.chunks(train_set, 20):
-            partition_count = partition_count + 1
-            with open(os.path.join(self.root, 'tiered-imagenet/compacted_datasets', 'tiered_imagenet_train_{}.pickle'.format(partition_count)), 'wb') as handle:
-                pickle.dump(item, handle, protocol=2)
-
-        partition_count = 0
-        for item in self.chunks(test_set, 20):
-            partition_count = partition_count + 1
-            with open(os.path.join(self.root, 'tiered-imagenet/compacted_datasets', 'tiered_imagenet_test_{}.pickle'.format(partition_count)), 'wb') as handle:
-                pickle.dump(item, handle, protocol=2)
-
-        partition_count = 0
-        for item in self.chunks(val_set, 20):
-            partition_count = partition_count + 1
-            with open(os.path.join(self.root, 'tiered-imagenet/compacted_datasets', 'tiered_imagenet_val_{}.pickle'.format(partition_count)), 'wb') as handle:
-                pickle.dump(item, handle, protocol=2)
-
-
-
-        label_encoder = {}
-        keys = list(train_set.keys()) + list(test_set.keys())
-        for id_key, key in enumerate(keys):
-            label_encoder[key] = id_key
-        with open(os.path.join(self.root, 'tiered-imagenet/compacted_datasets', 'tiered_imagenet_label_encoder.pickle'), 'wb') as handle:
-            pickle.dump(label_encoder, handle, protocol=2)
-
-        print('Images preprocessed')
-
-    def load_dataset(self):
+    def load_data_pickle(self):
+        """
+            load the pickle processed tieredImagenet into label,unlabel
+            maintain label,unlabel data dictionary for indexes
+        """
         print("Loading dataset")
+        labels_name = '{}/tiered-imagenet/{}_labels.pkl'.format(self.root, self.partition)
+        images_name = '{}/tiered-imagenet/{}_images.npz'.format(self.root, self.partition)
+        print('labels:', labels_name)
+        print('images:', images_name)
+
+        if os.path.exists(images_name) and os.path.exists(labels_name):
+            try:
+                with open(labels_name) as f:
+                    data = pickle.load(f)
+                    label_specific = data["label_specific"]
+            except:
+                with open(labels_name, 'rb') as f:
+                    data = pickle.load(f, encoding='bytes')
+                    label_specific = data['label_specific']
+            print('read label data:{}'.format(len(label_specific)))
+        labels = label_specific
+
+        with np.load(images_name, mmap_mode="r", encoding='latin1') as data:
+            image_data = data["images"]
+            print('read image data:{}'.format(image_data.shape))
+
         data = {}
-        if self.partition == 'train':
-            num_partition = 18
-        elif self.partition == 'val':
-            num_partition = 5
-        elif self.partition == 'test':
-            num_partition = 8
-
-        partition_count = 0
-        for i in range(num_partition):
-            partition_count = partition_count +1
-            with open(os.path.join(self.root, 'tiered-imagenet/compacted_datasets', 'tiered_imagenet_{}_{}.pickle'.format(self.partition, partition_count)), 'rb') as handle:
-                data.update(pickle.load(handle))
-
-        # Resize images and normalize
-        for class_ in data:
-            for i in range(len(data[class_])):
-                image2resize = pil_image.fromarray(np.uint8(data[class_][i]))
+        n_classes = np.max(labels) + 1
+        for c_idx in range(n_classes):
+            data[c_idx] = []
+            idxs = np.where(labels==c_idx)[0]
+            np.random.RandomState(tt.arg.seed).shuffle(idxs)  # fix the seed to keep label,unlabel fixed
+            for i in idxs:
+                image2resize = pil_image.fromarray(np.uint8(image_data[i,:,:,:]))
                 image_resized = image2resize.resize((self.data_size[2], self.data_size[1]))
                 image_resized = np.array(image_resized, dtype='float32')
 
@@ -271,20 +171,8 @@ class TieredImagenetLoader(data.Dataset):
                 image_resized[1, :, :] -= 115.74  # G
                 image_resized[2, :, :] -= 104.65  # B
                 image_resized /= 127.5
-
-                data[class_][i] = image_resized
-
-        print("Num classes " + str(len(data)))
-        num_images = 0
-        for class_ in data:
-            num_images += len(data[class_])
-        print("Num images " + str(num_images))
+                data[c_idx].append(image_resized)
         return data
-
-    def chunks(self, data, size=10000):
-        it = iter(data)
-        for i in range(0, len(data), size):
-            yield {k: data[k] for k in islice(it, size)}
 
     def get_task_batch(self,
                        num_tasks=5,
@@ -335,8 +223,6 @@ class TieredImagenetLoader(data.Dataset):
                 for i_idx in range(num_queries):
                     query_data[i_idx + c_idx * num_queries][t_idx] = class_data_list[num_shots + i_idx]
                     query_label[i_idx + c_idx * num_queries][t_idx] = c_idx
-
-
 
         # convert to tensor (num_tasks x (num_ways * (num_supports + num_queries)) x ...)
         support_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in support_data], 1)

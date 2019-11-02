@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader
+from data import MiniImagenetLoader,TieredImagenetLoader
 from model import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os
@@ -324,9 +324,9 @@ def set_exp_name():
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:0'
+    tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'mini'
+    tt.arg.dataset = 'tiered' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5
     tt.arg.num_shots = 5
     tt.arg.num_queries = tt.arg.num_ways*1
@@ -343,8 +343,8 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'kn'  # 'way'/'support'/'kn'
-    tt.arg.unet_mode = 'noold' # 'addold'/'noold'
+    tt.arg.pool_mode = 'way'  # 'way'/'support'/'kn'
+    tt.arg.unet_mode = 'addold' # 'addold'/'noold'
     unet2_flag = False # the label of using unet2
 
     # confirm ks
@@ -405,7 +405,7 @@ if __name__ == '__main__':
 
 
     # train, test parameters
-    tt.arg.train_iteration = 100000
+    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -414,8 +414,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
+    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
+    tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
 
     tt.arg.experiment = set_exp_name() if tt.arg.experiment is None else tt.arg.experiment
 
@@ -450,13 +450,14 @@ if __name__ == '__main__':
         else:
             unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
 
-
-
     if tt.arg.dataset == 'mini':
         train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'tiered':
+        train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
     else:
-        print('Unknown dataset!!!')
+        print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
 
     data_loader = {'train': train_loader,

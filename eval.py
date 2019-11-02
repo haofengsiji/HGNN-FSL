@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader
+from data import MiniImagenetLoader,TieredImagenetLoader
 from model import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os
@@ -8,14 +8,14 @@ from train import ModelTrainer
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:0'
+    tt.arg.device = 'cuda:3'
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini'
     tt.arg.num_ways = 5
-    tt.arg.num_shots = 5
+    tt.arg.num_shots = 1
     tt.arg.num_queries = tt.arg.num_ways * 1
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
-    tt.arg.transductive = True
+    tt.arg.transductive = False
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -133,8 +133,11 @@ if __name__ == '__main__':
     if tt.arg.dataset == 'mini':
         train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'tiered':
+        train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
     else:
-        print('Unknown dataset!!!')
+        print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
 
     test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
