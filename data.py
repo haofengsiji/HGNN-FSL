@@ -120,6 +120,7 @@ class MiniImagenetLoader(data.Dataset):
 
 class TieredImagenetLoader(object):
     def __init__(self, root, partition='train'):
+        super(TieredImagenetLoader, self).__init__()
         self.root = root
         self.partition = partition  # train/val/test
         self.data_size = [3, 84, 84]
@@ -128,10 +129,7 @@ class TieredImagenetLoader(object):
         self.data = self.load_data_pickle()
 
     def load_data_pickle(self):
-        """
-            load the pickle processed tieredImagenet into label,unlabel
-            maintain label,unlabel data dictionary for indexes
-        """
+
         print("Loading dataset")
         labels_name = '{}/tiered-imagenet/{}_labels.pkl'.format(self.root, self.partition)
         images_name = '{}/tiered-imagenet/{}_images.npz'.format(self.root, self.partition)
