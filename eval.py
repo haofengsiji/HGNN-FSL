@@ -8,14 +8,14 @@ from train import ModelTrainer
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:3'
+    tt.arg.device = 'cuda:3' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'mini'
-    tt.arg.num_ways = 5
-    tt.arg.num_shots = 1
+    tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
+    tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
+    tt.arg.num_shots = 1 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways * 1
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
-    tt.arg.transductive = False
+    tt.arg.transductive = False if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'kn'  # 'way'/'support'/'kn'
+    tt.arg.pool_mode = 'support'  # 'way'/'support'/'kn'
     tt.arg.unet_mode = 'noold'  # 'addold'/'noold'
     unet2_flag = False  # the label of using unet2
 
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         raise NameError('wrong shot and T settings!!!')
 
     # train, test parameters
-    tt.arg.train_iteration = 100000
+    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -97,8 +97,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
+    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
+    tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
 
     # set random seed
     np.random.seed(tt.arg.seed)

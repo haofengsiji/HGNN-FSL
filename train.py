@@ -327,11 +327,11 @@ if __name__ == '__main__':
     tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'tiered' if tt.arg.dataset is None else tt.arg.dataset
-    tt.arg.num_ways = 5
-    tt.arg.num_shots = 5
+    tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
+    tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways*1
     tt.arg.num_supports = tt.arg.num_ways*tt.arg.num_shots
-    tt.arg.transductive = True
+    tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -343,8 +343,9 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'way'  # 'way'/'support'/'kn'
-    tt.arg.unet_mode = 'addold' # 'addold'/'noold'
+    tt.arg.pool_mode = 'way' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
+    print(tt.arg.pool_mode=='kn')
+    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False # the label of using unet2
 
     # confirm ks
@@ -409,7 +410,7 @@ if __name__ == '__main__':
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
-    tt.arg.log_step = 2
+    tt.arg.log_step = 1000
 
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
