@@ -8,7 +8,8 @@ from PIL import Image as pil_image
 import pickle
 from itertools import islice
 from torchvision import transforms
-
+from   tqdm import tqdm
+import cv2
 
 class MiniImagenetLoader(data.Dataset):
     def __init__(self, root, partition='train'):
@@ -136,6 +137,14 @@ class TieredImagenetLoader(object):
         print('labels:', labels_name)
         print('images:', images_name)
 
+        # decompress images if npz not exits
+        if not os.path.exists(images_name):
+            png_pkl = images_name[:-4] + '_png.pkl'
+            if os.path.exists(png_pkl):
+                decompress(images_name, png_pkl)
+            else:
+                raise ValueError('path png_pkl not exits')
+
         if os.path.exists(images_name) and os.path.exists(labels_name):
             try:
                 with open(labels_name) as f:
@@ -229,3 +238,24 @@ class TieredImagenetLoader(object):
         query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
 
         return [support_data, support_label, query_data, query_label]
+
+def compress(path, output):
+  with np.load(path, mmap_mode="r") as data:
+    images = data["images"]
+    array = []
+    for ii in tqdm(six.moves.xrange(images.shape[0]), desc='compress'):
+      im = images[ii]
+      im_str = cv2.imencode('.png', im)[1]
+      array.append(im_str)
+  with open(output, 'wb') as f:
+    pickle.dump(array, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def decompress(path, output):
+  with open(output, 'rb') as f:
+    array = pickle.load(f, encoding='bytes')
+  images = np.zeros([len(array), 84, 84, 3], dtype=np.uint8)
+  for ii, item in tqdm(enumerate(array), desc='decompress'):
+    im = cv2.imdecode(item, 1)
+    images[ii] = im
+  np.savez(path, images=images)
