@@ -12,10 +12,10 @@ if __name__ == '__main__':
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
-    tt.arg.num_shots = 1 if tt.arg.num_shots is None else tt.arg.num_shots
+    tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways * 1
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
-    tt.arg.transductive = False if tt.arg.transductive is None else tt.arg.transductive
+    tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -27,8 +27,8 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'support'  # 'way'/'support'/'kn'
-    tt.arg.unet_mode = 'noold'  # 'addold'/'noold'
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
+    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False  # the label of using unet2
 
     # confirm ks
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
     tt.arg.exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode, tt.arg.unet_mode)
-    tt.arg.exp_name += '_SEED-{}'.format(tt.arg.seed)
+    tt.arg.exp_name += '_SEED-{}_6'.format(tt.arg.seed)
 
     print(tt.arg.exp_name)
 
