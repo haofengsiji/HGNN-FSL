@@ -318,7 +318,7 @@ def set_exp_name():
     exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
     exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
-    exp_name += '_SEED-{}'.format(tt.arg.seed)
+    exp_name += '_SEED-{}_8'.format(tt.arg.seed)
 
     return exp_name
 
@@ -343,8 +343,7 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'way' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
-    print(tt.arg.pool_mode=='kn')
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
     tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False # the label of using unet2
 
@@ -391,9 +390,9 @@ if __name__ == '__main__':
             mode_2 = 'support'
             unet2_flag = True
         elif tt.arg.pool_mode == 'kn':
-            tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
+            tt.arg.ks_1 = [0.8,0.8, 0.7, 0.5]  # 5->4->3->2->1
             mode_1 = 'way&kn'
-            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
+            tt.arg.ks_2 = [0.8,0.8, 0.7, 0.5]  # 5->4->3->2->1 # supplementary pooling for fair comparing
             mode_2 = 'kn'
             unet2_flag = True
         else:
