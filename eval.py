@@ -74,9 +74,9 @@ if __name__ == '__main__':
             mode_2 = 'support'
             unet2_flag = True
         elif tt.arg.pool_mode == 'kn':
-            tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
+            tt.arg.ks_1 = [0.8,0.8, 0.7, 0.5]  # 5->4->3->2->1
             mode_1 = 'way&kn'
-            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
+            tt.arg.ks_2 = [0.8,0.8, 0.7, 0.5]  # 5->4->3->2->1 # supplementary pooling for fair comparing
             mode_2 = 'kn'
             unet2_flag = True
         else:
