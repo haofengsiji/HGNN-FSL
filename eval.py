@@ -8,14 +8,30 @@ from train import ModelTrainer
 
 if __name__ == '__main__':
 
+    tt.arg.test_model = 'D-tiered_N-5_K-5_Q-5_B-20_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
+
+    list1 = tt.arg.test_model.split("_")
+    param = {}
+    for i in range(len(list1)):
+        param[list1[i].split("-", 1)[0]] = list1[i].split("-", 1)[1]
+    tt.arg.dataset = param['D']
+    tt.arg.num_ways = int(param['N'])
+    tt.arg.num_shots = int(param['K'])
+    tt.arg.num_queries = int(param['Q'])
+    tt.arg.meta_batch_size = int(param['B'])
+    tt.arg.transductive = False if param['T'] == 'False' else True
+    tt.arg.pool_mode = param['P']
+    tt.arg.unet_mode = param['Un']
+
+    ##############################
     tt.arg.device = 'cuda:3' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
-    tt.arg.num_shots = 1 if tt.arg.num_shots is None else tt.arg.num_shots
-    tt.arg.num_queries = tt.arg.num_ways * 1
+    tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
+    tt.arg.num_queries = tt.arg.num_ways * 1 if tt.arg.num_queries is None else tt.arg.num_queries
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
-    tt.arg.transductive = False if tt.arg.transductive is None else tt.arg.transductive
+    tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -27,8 +43,8 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'support'  # 'way'/'support'/'kn'
-    tt.arg.unet_mode = 'noold'  # 'addold'/'noold'
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode  # 'way'/'support'/'kn'
+    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False  # the label of using unet2
 
     # confirm ks
@@ -138,8 +154,6 @@ if __name__ == '__main__':
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
 
-    test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
-
     data_loader = {'test': test_loader}
 
     # create trainer
@@ -149,7 +163,7 @@ if __name__ == '__main__':
 
     checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
     # checkpoint = torch.load('./trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
-
+    tt.arg.seed = 250
     tester.enc_module.load_state_dict(checkpoint['enc_module_state_dict'])
     print("load pre-trained enc_nn done!")
 

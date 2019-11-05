@@ -11,6 +11,7 @@ from torchvision import transforms
 from   tqdm import tqdm
 import cv2
 
+
 class MiniImagenetLoader(data.Dataset):
     def __init__(self, root, partition='train'):
         super(MiniImagenetLoader, self).__init__()
@@ -169,7 +170,7 @@ class TieredImagenetLoader(object):
             np.random.RandomState(tt.arg.seed).shuffle(idxs)  # fix the seed to keep label,unlabel fixed
             for i in idxs:
                 image2resize = pil_image.fromarray(np.uint8(image_data[i,:,:,:]))
-                image_resized = image2resize.resize((self.data_size[2], self.data_size[1]))
+                image_resized = image2resize.resize((self.data_size[2], self.data_size[1]),pil_image.ANTIALIAS)
                 image_resized = np.array(image_resized, dtype='float32')
 
                 # Normalize
