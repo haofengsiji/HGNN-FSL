@@ -131,11 +131,9 @@ if __name__ == '__main__':
                                 tt.arg.num_queries)
 
     if tt.arg.dataset == 'mini':
-        train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
-        valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
+        test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
     elif tt.arg.dataset == 'tiered':
-        train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
-        valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
+        test_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='test')
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
