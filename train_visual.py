@@ -1,14 +1,12 @@
 from torchtools import *
-<<<<<<< HEAD
 from data import MiniImagenetLoader
-from model import EmbeddingImagenet, Unet
-=======
-from data import MiniImagenetLoader,TieredImagenetLoader
-from model import EmbeddingImagenet, Unet,Unet2
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
+from model_visual import EmbeddingImagenet, Unet, Unet2
+import pandas as pd
 import shutil
 import os
+from PIL import Image
 import random
+from torchvision import transforms
 
 class ModelTrainer(object):
     def __init__(self,
@@ -49,11 +47,7 @@ class ModelTrainer(object):
 
         # set edge mask (to distinguish support and query edges)
         num_supports = tt.arg.num_ways * tt.arg.num_shots
-<<<<<<< HEAD
         num_queries = tt.arg.num_ways * 1
-=======
-        num_queries = tt.arg.num_queries
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
         num_samples = num_supports + num_queries
 
         # for each iteration
@@ -71,10 +65,6 @@ class ModelTrainer(object):
              query_label] = self.data_loader['train'].get_task_batch(num_tasks=tt.arg.meta_batch_size,
                                                                      num_ways=tt.arg.num_ways,
                                                                      num_shots=tt.arg.num_shots,
-<<<<<<< HEAD
-=======
-                                                                     num_queries=int(tt.arg.num_queries /tt.arg.num_ways),
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
                                                                      seed=iter + tt.arg.seed)
 
             # set as single data
@@ -103,13 +93,6 @@ class ModelTrainer(object):
             one_hot_label = torch.cat([one_hot_label, query_padding], dim=1)
             full_data = torch.cat([full_data, one_hot_label], dim=-1)
 
-<<<<<<< HEAD
-            # 2. unet
-            node_out = self.unet_module(init_edge,full_data)
-
-            # 3. compute loss
-            query_node_out = node_out[:,num_supports:]
-=======
             if tt.arg.transductive == True:
                 # transduction
                 full_node_out = self.unet_module(init_edge, full_data)
@@ -145,7 +128,6 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:,num_supports:]
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
@@ -195,11 +177,7 @@ class ModelTrainer(object):
 
         # set edge mask (to distinguish support and query edges)
         num_supports = tt.arg.num_ways * tt.arg.num_shots
-<<<<<<< HEAD
         num_queries = tt.arg.num_ways * 1
-=======
-        num_queries = tt.arg.num_queries
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
         num_samples = num_supports + num_queries
 
         query_node_accrs = []
@@ -213,10 +191,6 @@ class ModelTrainer(object):
              query_label] = self.data_loader[partition].get_task_batch(num_tasks=tt.arg.test_batch_size,
                                                                        num_ways=tt.arg.num_ways,
                                                                        num_shots=tt.arg.num_shots,
-<<<<<<< HEAD
-                                                                       seed=iter)
-=======
-                                                                       num_queries=int(tt.arg.num_queries /tt.arg.num_ways),
                                                                        seed=iter)
             '''
             q0 = query_data[:,0,:].clone()
@@ -228,17 +202,107 @@ class ModelTrainer(object):
             query_label[:, 1] = ql0
             query_label[:, 0] = ql1
             '''
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
+
+
+            # visual_image
+            if tt.arg.visual == None:
+                tt.arg.visual = True
+            if tt.arg.visual == True and partition=='test':
+                tt.arg.iter = iter
+                if tt.arg.transductive == True:
+                    mean_pix = [x / 255.0 for x in [120.39586422, 115.59361427, 104.54012653]]
+                    std_pix = [x / 255.0 for x in [70.68188272, 68.27635443, 72.54505529]]
+                    inv_normalize = transforms.Normalize(
+                        mean = [-m/s for m,s in zip(mean_pix,std_pix)],
+                        std = [1/s for s in std_pix]
+                    )
+                    if not os.path.exists('visual_%s' % tt.arg.exp_name):
+                        os.makedirs('visual_%s' % tt.arg.exp_name)
+                    for i in range(tt.arg.test_batch_size):
+
+                        # visual_X(0)
+                        if os.path.exists('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i)):
+                            os.remove('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i))
+
+                        if not os.path.exists('visual_%s/%03d' % (tt.arg.exp_name,iter*tt.arg.test_batch_size+i)):
+                            os.makedirs('visual_%s/%03d' % (tt.arg.exp_name,iter*tt.arg.test_batch_size+i))
+                        for j in range(support_data.size(1)):
+                            pic = inv_normalize(support_data[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg' % (tt.arg.exp_name, iter * tt.arg.test_batch_size + i, j, support_label[i, j]))
+                        for j in range(query_data.size(1)):
+                            pic = inv_normalize(query_data[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg' % (tt.arg.exp_name, iter * tt.arg.test_batch_size + i, j+num_supports, query_label[i, j]))
+
+                        # save label
+                        np_label = torch.cat((support_label[i, :],query_label[i, :]),dim=0).detach().cpu().numpy()
+                        data = [['label'] + list(np_label)]
+                        df = pd.DataFrame(data)
+                        df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i),
+                                  header=False,
+                                  index=False)
+
+                else:
+                    support_data_tiled = support_data.unsqueeze(1).repeat(1, num_queries, 1,
+                                                                          1,1,1)  # batch_size x num_queries x num_support x 3x84x84
+                    support_data_tiled = support_data_tiled.reshape(tt.arg.test_batch_size * num_queries, num_supports,
+                                                                    3,84,84)  # (batch_size x num_queries) x num_support x 3x84x84
+                    query_data_reshaped = query_data.reshape(tt.arg.test_batch_size * num_queries,
+                                                             3,84,84).unsqueeze(1)  # (batch_size x num_queries) x 1 x 3x84x84
+                    support_label_tiled = support_label.unsqueeze(1).repeat(1, num_queries, 1)  # batch_size x num_queries x num_support
+                    support_label_tiled = support_label_tiled.reshape(tt.arg.test_batch_size * num_queries, num_supports)  # (batch_size x num_queries) x num_support
+                    query_label_reshaped = query_label.reshape(tt.arg.test_batch_size * num_queries).unsqueeze(1)  # (batch_size x num_queries) x 1
+
+                    mean_pix = [x / 255.0 for x in [120.39586422, 115.59361427, 104.54012653]]
+                    std_pix = [x / 255.0 for x in [70.68188272, 68.27635443, 72.54505529]]
+                    inv_normalize = transforms.Normalize(
+                        mean=[-m / s for m, s in zip(mean_pix, std_pix)],
+                        std=[1 / s for s in std_pix]
+                    )
+                    if not os.path.exists('visual_%s' % tt.arg.exp_name):
+                        os.makedirs('visual_%s' % tt.arg.exp_name)
+                    trand_batch_size = tt.arg.test_batch_size*num_queries
+                    for i in range(trand_batch_size):
+
+                        # visual_X(0)
+                        if os.path.exists('visual_%s/%03d/feature_record.csv' % (
+                                            tt.arg.exp_name, tt.arg.iter * trand_batch_size + i)):
+                            os.remove('visual_%s/%03d/feature_record.csv' % (
+                                        tt.arg.exp_name, tt.arg.iter * trand_batch_size + i))
+
+                        if not os.path.exists('visual_%s/%03d' % (tt.arg.exp_name, iter * trand_batch_size + i)):
+                            os.makedirs('visual_%s/%03d' % (tt.arg.exp_name, iter * trand_batch_size + i))
+                        for j in range(support_data_tiled.size(1)):
+                            pic = inv_normalize(support_data_tiled[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg'
+                                    % (tt.arg.exp_name, iter * trand_batch_size + i, j, support_label_tiled[i, j]))
+                        for j in range(query_data_reshaped.size(1)):
+                            pic = inv_normalize(query_data_reshaped[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg'
+                                    % (tt.arg.exp_name, iter * trand_batch_size + i, j + num_supports, query_label_reshaped[i, j]))
+
+                        # save label
+                        np_label = torch.cat((support_label_tiled[i, :], query_label_reshaped[i, :]), dim=0).detach().cpu().numpy()
+                        data = [['label'] + list(np_label)]
+                        df = pd.DataFrame(data)
+                        df.to_csv('visual_%s/%03d/feature_record.csv' % (
+                        tt.arg.exp_name, tt.arg.iter * trand_batch_size + i),
+                                  header=False,
+                                  index=False)
+
+
+
+
             # set as single data
             full_data = torch.cat([support_data, query_data], 1)
             full_label = torch.cat([support_label, query_label], 1)
             full_edge = self.label2edge(full_label)
 
-<<<<<<< HEAD
-=======
 
 
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             # set init edge
             init_edge = full_edge.clone()
             init_edge[:, num_supports:, :] = 0.5
@@ -259,13 +323,6 @@ class ModelTrainer(object):
             one_hot_label = torch.cat([one_hot_label, query_padding], dim=1)
             full_data = torch.cat([full_data, one_hot_label], dim=-1)
 
-<<<<<<< HEAD
-            # 2. unet
-            node_out = self.unet_module(init_edge, full_data)
-
-            # node loss,accr
-            query_node_out = node_out[:, num_supports:]
-=======
             if tt.arg.transductive == True:
                 # transduction
                 full_node_out = self.unet_module(init_edge, full_data)
@@ -301,12 +358,16 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:, num_supports:]
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
 
             query_node_accrs += [node_accr.item()]
+
+            # visual parameters refesh
+            tt.arg.pool_count = 0
+            if tt.arg.iter > 0:
+                tt.arg.visual = False
 
         # logging
         if log_flag:
@@ -320,6 +381,8 @@ class ModelTrainer(object):
                     1.96 * np.array(query_node_accrs).std() / np.sqrt(
                         float(len(np.array(query_node_accrs)))) * 100))
             tt.log('---------------------------')
+
+
 
         return np.array(query_node_accrs).mean()
 
@@ -354,32 +417,20 @@ class ModelTrainer(object):
 
 def set_exp_name():
     exp_name = 'D-{}'.format(tt.arg.dataset)
-<<<<<<< HEAD
     exp_name += '_N-{}_K-{}'.format(tt.arg.num_ways, tt.arg.num_shots)
-    exp_name += '_B-{}'.format(tt.arg.meta_batch_size)
-=======
-    exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
-    exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
+    exp_name += '_P-{}_Pj-{}'.format(tt.arg.pool_mode,tt.arg.proj_mode)
     exp_name += '_SEED-{}'.format(tt.arg.seed)
 
     return exp_name
 
 if __name__ == '__main__':
 
-<<<<<<< HEAD
     tt.arg.device = 'cuda:1' if tt.arg.device is None else tt.arg.device
-=======
-    tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
-<<<<<<< HEAD
-    tt.arg.meta_batch_size = 40 if tt.arg.meta_batch_size is None else tt.arg.meta_batch_size
-=======
     tt.arg.num_queries = tt.arg.num_ways*1
     tt.arg.num_supports = tt.arg.num_ways*tt.arg.num_shots
     tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
@@ -387,84 +438,85 @@ if __name__ == '__main__':
         tt.arg.meta_batch_size = 20
     else:
         tt.arg.meta_batch_size = 40
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.seed = 222 if tt.arg.seed is None else tt.arg.seed
     tt.arg.num_gpus = 1
 
     # model parameter related
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
-<<<<<<< HEAD
-    tt.arg.ks = [0.5,0.5,0.5,0.5]
 
-    # train, test parameters
-    tt.arg.train_iteration = 100000
-=======
-
-    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
-    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
+    tt.arg.pool_mode = 'support' # 'com'/'way'/'support'/'inter&intra'/'way&inter'
+    tt.arg.proj_mode = 'multiHead'# 'com'/'multiHead'
     unet2_flag = False # the label of using unet2
 
     # confirm ks
     if tt.arg.num_shots == 1 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
-            tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'kn':  # left close support node
-            tt.arg.ks = [0.6, 0.5]  # 5->3->1
+        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
+            tt.arg.ks = [0.7, 0.5]  # 6->4>2
+        elif tt.arg.pool_mode == 'support': # 'support': pooling on support
+            tt.arg.ks = [0.6,0.5] # 5->3->1
+        elif tt.arg.pool_mode == 'way&inter': # pooling on support by inter way
+            tt.arg.ks = [0.6,0.5] # 5->3->1
         else:
             print('wrong mode setting!!!')
-            raise NameError('wrong mode setting!!!')
+            AssertionError()
     elif tt.arg.num_shots == 5 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
+            tt.arg.ks = [0.62, 0.375, 0.67, 0.5]  # 26->16->6->4->2
+        elif tt.arg.pool_mode == 'support':
+            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
+        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
-            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
+            tt.arg.ks_2 = [0.6, 0.5] # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'kn':
+        elif tt.arg.pool_mode == 'inter&intra':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&kn'
+            mode_1 = 'way&intra'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'kn'
+            mode_2 = 'way&inter'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            raise NameError('wrong mode setting!!!')
-
+            AssertionError()
     elif tt.arg.num_shots == 1 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
+        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
+            tt.arg.ks = [0.8, 0.75]  # 10->8->6
+        elif tt.arg.pool_mode == 'support':  # 'support': pooling on support
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'kn':  # left close support node
+        elif tt.arg.pool_mode == 'way&inter':  # pooling on support by inter way
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
         else:
             print('wrong mode setting!!!')
-            raise NameError('wrong mode setting!!!')
-
+            AssertionError()
     elif tt.arg.num_shots == 5 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
+            tt.arg.ks = [0.67, 0.5, 0.8, 0.75]  # 30->20->10->8->6
+        elif tt.arg.pool_mode == 'support':
+            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
+        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'kn':
+        elif tt.arg.pool_mode == 'inter&intra':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&kn'
+            mode_1 = 'way&intra'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'kn'
+            mode_2 = 'way&inter'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            raise NameError('wrong mode setting!!!')
-
+            AssertionError()
     else:
         print('wrong shot and T settings!!!')
-        raise NameError('wrong shot and T settings!!!')
+        AssertionError()
 
 
     # train, test parameters
-    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
+    tt.arg.train_iteration = 100000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -473,13 +525,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-<<<<<<< HEAD
     tt.arg.dec_lr = 10000
     tt.arg.dropout = 0.1
-=======
-    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
-    tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     tt.arg.experiment = set_exp_name() if tt.arg.experiment is None else tt.arg.experiment
 
@@ -503,9 +550,6 @@ if __name__ == '__main__':
 
     enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
 
-<<<<<<< HEAD
-    unet_module = Unet(tt.arg.ks,tt.arg.in_dim,tt.arg.num_ways)
-=======
     if tt.arg.transductive == False:
         if unet2_flag == False:
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, 1)
@@ -516,22 +560,13 @@ if __name__ == '__main__':
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
         else:
             unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
+
 
     if tt.arg.dataset == 'mini':
         train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
-<<<<<<< HEAD
     else:
         print('Unknown dataset!')
-=======
-    elif tt.arg.dataset == 'tiered':
-        train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
-        valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
-    else:
-        print('Unknown dataset!')
-        raise NameError('Unknown dataset!!!')
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     data_loader = {'train': train_loader,
                    'val': valid_loader

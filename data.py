@@ -8,6 +8,11 @@ from PIL import Image as pil_image
 import pickle
 from itertools import islice
 from torchvision import transforms
+<<<<<<< HEAD
+=======
+from   tqdm import tqdm
+import cv2
+>>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
 
 class MiniImagenetLoader(data.Dataset):
@@ -118,6 +123,7 @@ class MiniImagenetLoader(data.Dataset):
 
         return [support_data, support_label, query_data, query_label]
 
+<<<<<<< HEAD
 
 
 class TieredImagenetLoader(data.Dataset):
@@ -263,6 +269,59 @@ class TieredImagenetLoader(data.Dataset):
             for i in range(len(data[class_])):
                 image2resize = pil_image.fromarray(np.uint8(data[class_][i]))
                 image_resized = image2resize.resize((self.data_size[2], self.data_size[1]))
+=======
+class TieredImagenetLoader(object):
+    def __init__(self, root, partition='train'):
+        super(TieredImagenetLoader, self).__init__()
+        self.root = root
+        self.partition = partition  # train/val/test
+        self.data_size = [3, 84, 84]
+
+        # load data
+        self.data = self.load_data_pickle()
+
+    def load_data_pickle(self):
+
+        print("Loading dataset")
+        labels_name = '{}/tiered-imagenet/{}_labels.pkl'.format(self.root, self.partition)
+        images_name = '{}/tiered-imagenet/{}_images.npz'.format(self.root, self.partition)
+        print('labels:', labels_name)
+        print('images:', images_name)
+
+        # decompress images if npz not exits
+        if not os.path.exists(images_name):
+            png_pkl = images_name[:-4] + '_png.pkl'
+            if os.path.exists(png_pkl):
+                decompress(images_name, png_pkl)
+            else:
+                raise ValueError('path png_pkl not exits')
+
+        if os.path.exists(images_name) and os.path.exists(labels_name):
+            try:
+                with open(labels_name) as f:
+                    data = pickle.load(f)
+                    label_specific = data["label_specific"]
+            except:
+                with open(labels_name, 'rb') as f:
+                    data = pickle.load(f, encoding='bytes')
+                    label_specific = data['label_specific']
+            print('read label data:{}'.format(len(label_specific)))
+        labels = label_specific
+
+        with np.load(images_name, mmap_mode="r", encoding='latin1') as data:
+            image_data = data["images"]
+            print('read image data:{}'.format(image_data.shape))
+
+        data = {}
+        n_classes = np.max(labels) + 1
+        for c_idx in range(n_classes):
+            data[c_idx] = []
+            idxs = np.where(labels==c_idx)[0]
+            np.random.RandomState(tt.arg.seed).shuffle(idxs)  # fix the seed to keep label,unlabel fixed
+            for i in idxs:
+                image2resize = pil_image.fromarray(np.uint8(image_data[i,:,:,:]))
+                image_resized = image2resize.resize((self.data_size[2], self.data_size[1]),pil_image.ANTIALIAS)
+>>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
                 image_resized = np.array(image_resized, dtype='float32')
 
                 # Normalize
@@ -271,6 +330,7 @@ class TieredImagenetLoader(data.Dataset):
                 image_resized[1, :, :] -= 115.74  # G
                 image_resized[2, :, :] -= 104.65  # B
                 image_resized /= 127.5
+<<<<<<< HEAD
 
                 data[class_][i] = image_resized
 
@@ -286,6 +346,11 @@ class TieredImagenetLoader(data.Dataset):
         for i in range(0, len(data), size):
             yield {k: data[k] for k in islice(it, size)}
 
+=======
+                data[c_idx].append(image_resized)
+        return data
+
+>>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     def get_task_batch(self,
                        num_tasks=5,
                        num_ways=20,
@@ -336,12 +401,40 @@ class TieredImagenetLoader(data.Dataset):
                     query_data[i_idx + c_idx * num_queries][t_idx] = class_data_list[num_shots + i_idx]
                     query_label[i_idx + c_idx * num_queries][t_idx] = c_idx
 
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
         # convert to tensor (num_tasks x (num_ways * (num_supports + num_queries)) x ...)
         support_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in support_data], 1)
         support_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in support_label], 1)
         query_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in query_data], 1)
         query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
 
+<<<<<<< HEAD
         return [support_data, support_label, query_data, query_label]
+=======
+        return [support_data, support_label, query_data, query_label]
+
+def compress(path, output):
+  with np.load(path, mmap_mode="r") as data:
+    images = data["images"]
+    array = []
+    for ii in tqdm(six.moves.xrange(images.shape[0]), desc='compress'):
+      im = images[ii]
+      im_str = cv2.imencode('.png', im)[1]
+      array.append(im_str)
+  with open(output, 'wb') as f:
+    pickle.dump(array, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def decompress(path, output):
+  with open(output, 'rb') as f:
+    array = pickle.load(f, encoding='bytes')
+  images = np.zeros([len(array), 84, 84, 3], dtype=np.uint8)
+  for ii, item in tqdm(enumerate(array), desc='decompress'):
+    im = cv2.imdecode(item, 1)
+    images[ii] = im
+  np.savez(path, images=images)
+>>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
