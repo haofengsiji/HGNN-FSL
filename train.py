@@ -1,11 +1,6 @@
 from torchtools import *
-<<<<<<< HEAD
-from data import MiniImagenetLoader
-from model import EmbeddingImagenet, Unet
-=======
 from data import MiniImagenetLoader,TieredImagenetLoader
 from model import EmbeddingImagenet, Unet,Unet2
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 import shutil
 import os
 import random
@@ -49,11 +44,7 @@ class ModelTrainer(object):
 
         # set edge mask (to distinguish support and query edges)
         num_supports = tt.arg.num_ways * tt.arg.num_shots
-<<<<<<< HEAD
-        num_queries = tt.arg.num_ways * 1
-=======
         num_queries = tt.arg.num_queries
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
         num_samples = num_supports + num_queries
 
         # for each iteration
@@ -71,10 +62,7 @@ class ModelTrainer(object):
              query_label] = self.data_loader['train'].get_task_batch(num_tasks=tt.arg.meta_batch_size,
                                                                      num_ways=tt.arg.num_ways,
                                                                      num_shots=tt.arg.num_shots,
-<<<<<<< HEAD
-=======
                                                                      num_queries=int(tt.arg.num_queries /tt.arg.num_ways),
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
                                                                      seed=iter + tt.arg.seed)
 
             # set as single data
@@ -103,13 +91,6 @@ class ModelTrainer(object):
             one_hot_label = torch.cat([one_hot_label, query_padding], dim=1)
             full_data = torch.cat([full_data, one_hot_label], dim=-1)
 
-<<<<<<< HEAD
-            # 2. unet
-            node_out = self.unet_module(init_edge,full_data)
-
-            # 3. compute loss
-            query_node_out = node_out[:,num_supports:]
-=======
             if tt.arg.transductive == True:
                 # transduction
                 full_node_out = self.unet_module(init_edge, full_data)
@@ -145,7 +126,6 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:,num_supports:]
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
@@ -195,11 +175,7 @@ class ModelTrainer(object):
 
         # set edge mask (to distinguish support and query edges)
         num_supports = tt.arg.num_ways * tt.arg.num_shots
-<<<<<<< HEAD
-        num_queries = tt.arg.num_ways * 1
-=======
         num_queries = tt.arg.num_queries
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
         num_samples = num_supports + num_queries
 
         query_node_accrs = []
@@ -213,9 +189,6 @@ class ModelTrainer(object):
              query_label] = self.data_loader[partition].get_task_batch(num_tasks=tt.arg.test_batch_size,
                                                                        num_ways=tt.arg.num_ways,
                                                                        num_shots=tt.arg.num_shots,
-<<<<<<< HEAD
-                                                                       seed=iter)
-=======
                                                                        num_queries=int(tt.arg.num_queries /tt.arg.num_ways),
                                                                        seed=iter)
             '''
@@ -228,17 +201,13 @@ class ModelTrainer(object):
             query_label[:, 1] = ql0
             query_label[:, 0] = ql1
             '''
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             # set as single data
             full_data = torch.cat([support_data, query_data], 1)
             full_label = torch.cat([support_label, query_label], 1)
             full_edge = self.label2edge(full_label)
 
-<<<<<<< HEAD
-=======
 
 
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             # set init edge
             init_edge = full_edge.clone()
             init_edge[:, num_supports:, :] = 0.5
@@ -259,13 +228,6 @@ class ModelTrainer(object):
             one_hot_label = torch.cat([one_hot_label, query_padding], dim=1)
             full_data = torch.cat([full_data, one_hot_label], dim=-1)
 
-<<<<<<< HEAD
-            # 2. unet
-            node_out = self.unet_module(init_edge, full_data)
-
-            # node loss,accr
-            query_node_out = node_out[:, num_supports:]
-=======
             if tt.arg.transductive == True:
                 # transduction
                 full_node_out = self.unet_module(init_edge, full_data)
@@ -301,7 +263,6 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:, num_supports:]
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
@@ -354,32 +315,20 @@ class ModelTrainer(object):
 
 def set_exp_name():
     exp_name = 'D-{}'.format(tt.arg.dataset)
-<<<<<<< HEAD
-    exp_name += '_N-{}_K-{}'.format(tt.arg.num_ways, tt.arg.num_shots)
-    exp_name += '_B-{}'.format(tt.arg.meta_batch_size)
-=======
     exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
     exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     exp_name += '_SEED-{}'.format(tt.arg.seed)
 
     return exp_name
 
 if __name__ == '__main__':
 
-<<<<<<< HEAD
-    tt.arg.device = 'cuda:1' if tt.arg.device is None else tt.arg.device
-=======
     tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
-<<<<<<< HEAD
-    tt.arg.meta_batch_size = 40 if tt.arg.meta_batch_size is None else tt.arg.meta_batch_size
-=======
     tt.arg.num_queries = tt.arg.num_ways*1
     tt.arg.num_supports = tt.arg.num_ways*tt.arg.num_shots
     tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
@@ -387,19 +336,12 @@ if __name__ == '__main__':
         tt.arg.meta_batch_size = 20
     else:
         tt.arg.meta_batch_size = 40
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.seed = 222 if tt.arg.seed is None else tt.arg.seed
     tt.arg.num_gpus = 1
 
     # model parameter related
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
-<<<<<<< HEAD
-    tt.arg.ks = [0.5,0.5,0.5,0.5]
-
-    # train, test parameters
-    tt.arg.train_iteration = 100000
-=======
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
     tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
@@ -464,7 +406,6 @@ if __name__ == '__main__':
 
     # train, test parameters
     tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -473,13 +414,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-<<<<<<< HEAD
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
-=======
     tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
     tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     tt.arg.experiment = set_exp_name() if tt.arg.experiment is None else tt.arg.experiment
 
@@ -503,9 +439,6 @@ if __name__ == '__main__':
 
     enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
 
-<<<<<<< HEAD
-    unet_module = Unet(tt.arg.ks,tt.arg.in_dim,tt.arg.num_ways)
-=======
     if tt.arg.transductive == False:
         if unet2_flag == False:
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, 1)
@@ -516,22 +449,16 @@ if __name__ == '__main__':
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
         else:
             unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     if tt.arg.dataset == 'mini':
         train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
-<<<<<<< HEAD
-    else:
-        print('Unknown dataset!')
-=======
     elif tt.arg.dataset == 'tiered':
         train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     data_loader = {'train': train_loader,
                    'val': valid_loader

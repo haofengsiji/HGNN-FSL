@@ -1,23 +1,14 @@
 from torchtools import *
-<<<<<<< HEAD
-from data import MiniImagenetLoader
-from model import EmbeddingImagenet, Unet
-=======
 from data import MiniImagenetLoader,TieredImagenetLoader
 from model import EmbeddingImagenet, Unet,Unet2
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 import shutil
 import os
 import random
 from train import ModelTrainer
 
 if __name__ == '__main__':
-<<<<<<< HEAD
-    tt.arg.test_model = 'D-mini_N-5_K-5_B-40_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
-=======
 
     tt.arg.test_model = 'D-tiered_N-5_K-5_Q-5_B-20_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     list1 = tt.arg.test_model.split("_")
     param = {}
@@ -26,11 +17,6 @@ if __name__ == '__main__':
     tt.arg.dataset = param['D']
     tt.arg.num_ways = int(param['N'])
     tt.arg.num_shots = int(param['K'])
-<<<<<<< HEAD
-    tt.arg.meta_batch_size = int(param['B'])
-
-    tt.arg.device = 'cuda:1' if tt.arg.device is None else tt.arg.device
-=======
     tt.arg.num_queries = int(param['Q'])
     tt.arg.meta_batch_size = int(param['B'])
     tt.arg.transductive = False if param['T'] == 'False' else True
@@ -39,14 +25,10 @@ if __name__ == '__main__':
 
     ##############################
     tt.arg.device = 'cuda:3' if tt.arg.device is None else tt.arg.device
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
-<<<<<<< HEAD
-    tt.arg.meta_batch_size = 40 if tt.arg.meta_batch_size is None else tt.arg.meta_batch_size
-=======
     tt.arg.num_queries = tt.arg.num_ways * 1 if tt.arg.num_queries is None else tt.arg.num_queries
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
     tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
@@ -54,19 +36,12 @@ if __name__ == '__main__':
         tt.arg.meta_batch_size = 20
     else:
         tt.arg.meta_batch_size = 40
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.seed = 222 if tt.arg.seed is None else tt.arg.seed
     tt.arg.num_gpus = 1
 
     # model parameter related
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
-<<<<<<< HEAD
-    tt.arg.ks = [0.5, 0.5, 0.5, 0.5]
-
-    # train, test parameters
-    tt.arg.train_iteration = 100000
-=======
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode  # 'way'/'support'/'kn'
     tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
@@ -130,7 +105,6 @@ if __name__ == '__main__':
 
     # train, test parameters
     tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -139,13 +113,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-<<<<<<< HEAD
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
-=======
     tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
     tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     # set random seed
     np.random.seed(tt.arg.seed)
@@ -155,24 +124,6 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-<<<<<<< HEAD
-    exp_name = 'D-{}'.format(tt.arg.dataset)
-    exp_name += '_N-{}_K-{}'.format(tt.arg.num_ways, tt.arg.num_shots)
-    exp_name += '_B-{}'.format(tt.arg.meta_batch_size)
-    exp_name += '_SEED-{}'.format(tt.arg.seed)
-
-    if not exp_name == tt.arg.test_model:
-        print(exp_name)
-        print(tt.arg.test_model)
-        print('Test model and input arguments are mismatched!')
-        AssertionError()
-
-    enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
-
-    unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways)
-
-    test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
-=======
     tt.arg.exp_name = 'D-{}'.format(tt.arg.dataset)
     tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
@@ -202,7 +153,6 @@ if __name__ == '__main__':
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     data_loader = {'test': test_loader}
 
@@ -211,15 +161,9 @@ if __name__ == '__main__':
                           unet_module=unet_module,
                           data_loader=data_loader)
 
-<<<<<<< HEAD
-    checkpoint = torch.load('asset/checkpoints/{}/'.format(exp_name) + 'model_best.pth.tar')
-    # checkpoint = torch.load('./trained_models/{}/'.format(exp_name) + 'model_best.pth.tar')
-
-=======
     checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
     # checkpoint = torch.load('./trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
     tt.arg.seed = 250
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
     tester.enc_module.load_state_dict(checkpoint['enc_module_state_dict'])
     print("load pre-trained enc_nn done!")
 
@@ -230,10 +174,6 @@ if __name__ == '__main__':
     tester.val_acc = checkpoint['val_acc']
     tester.global_step = checkpoint['iteration']
 
-<<<<<<< HEAD
-    print(tester.global_step)
-=======
     print(tester.global_step,tester.val_acc)
->>>>>>> 785c0fde2c03fb8b7099d8a4773edb222cab1e93
 
     tester.eval(partition='test')
