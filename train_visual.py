@@ -62,16 +62,6 @@ class ModelTrainer(object):
                                                                        num_ways=tt.arg.num_ways,
                                                                        num_shots=tt.arg.num_shots,
                                                                        seed=iter)
-            '''
-            q0 = query_data[:,0,:].clone()
-            q1 = query_data[:,1,:].clone()
-            query_data[:, 1, :] = q0
-            query_data[:, 0, :] = q1
-            ql0 = query_label[:,0].clone()
-            ql1 = query_label[:,1].clone()
-            query_label[:, 1] = ql0
-            query_label[:, 0] = ql1
-            '''
 
 
             # visual_image

@@ -80,11 +80,16 @@ class GraphPool(nn.Module):
         self.proj = nn.Linear(in_dim, 1).to(tt.arg.device)
         self.sigmoid = nn.Sigmoid()
 
-    def forward(self, A, X, X1, X2):
+    def forward(self, A, X):
         batch = X.shape[0]
         idx_batch = []
         new_X_batch = []
         new_A_batch = []
+
+        if tt.arg.visual == True:
+            if tt.arg.pool_count == None:
+                tt.arg.pool_count = 0
+
         # for each batch
         for i in range(batch):
             num_nodes = A[i, 0].shape[0]

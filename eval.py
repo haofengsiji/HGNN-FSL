@@ -8,7 +8,7 @@ from train import ModelTrainer
 
 if __name__ == '__main__':
 
-    tt.arg.test_model = 'D-mini_N-5_K-1_Q-5_B-40_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
+    tt.arg.test_model = 'D-mini_N-5_K-5_Q-5_B-40_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
 
     list1 = tt.arg.test_model.split("_")
     param = {}
