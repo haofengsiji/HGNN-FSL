@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader
+from data import MiniImagenetLoader,TieredImagenetLoader
 from model_visual import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os
@@ -7,7 +7,8 @@ import random
 from train_visual import ModelTrainer
 
 if __name__ == '__main__':
-    tt.arg.test_model = 'D-mini_N-5_K-5_B-40_T-True_P-way&inter_Pj-multiHead_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
+
+    tt.arg.test_model = 'D-mini_N-5_K-5_Q-5_B-40_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
 
     list1 = tt.arg.test_model.split("_")
     param = {}
@@ -16,20 +17,21 @@ if __name__ == '__main__':
     tt.arg.dataset = param['D']
     tt.arg.num_ways = int(param['N'])
     tt.arg.num_shots = int(param['K'])
+    tt.arg.num_queries = int(param['Q'])
     tt.arg.meta_batch_size = int(param['B'])
     tt.arg.transductive = False if param['T'] == 'False' else True
     tt.arg.pool_mode = param['P']
-    tt.arg.proj_mode = param['Pj']
+    tt.arg.unet_mode = param['Un']
 
-
-    tt.arg.device = 'cuda:1' if tt.arg.device is None else tt.arg.device
+    ##############################
+    tt.arg.device = 'cuda:3' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
-    tt.arg.num_shots = 1 if tt.arg.num_shots is None else tt.arg.num_shots
-    tt.arg.num_queries = tt.arg.num_ways * 1
+    tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
+    tt.arg.num_queries = tt.arg.num_ways * 1 if tt.arg.num_queries is None else tt.arg.num_queries
     tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
-    tt.arg.transductive = True
+    tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
     else:
@@ -41,93 +43,68 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'intra'  # 'com'/'way'/'support'/'inter&intra'/'way&inter'/'intra'
-    tt.arg.proj_mode = 'multiHead'  # 'com'/'multiHead'
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode  # 'way'/'support'/'kn'
+    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False  # the label of using unet2
 
     # confirm ks
     if tt.arg.num_shots == 1 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
-            tt.arg.ks = [0.7, 0.5]  # 6->4>2
-        elif tt.arg.pool_mode == 'support':  # 'support': pooling on support
+        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'way&inter':  # pooling on support by inter way
+        elif tt.arg.pool_mode == 'kn':  # left close support node
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'intra': # left close support node
-            tt.arg.ks = [0.6,0.5] # 5->3->1
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
     elif tt.arg.num_shots == 5 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
-            tt.arg.ks = [0.62, 0.375, 0.67, 0.5]  # 26->16->6->4->2
-        elif tt.arg.pool_mode == 'support':
-            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
-        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'inter&intra':
+        elif tt.arg.pool_mode == 'kn':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
+            mode_1 = 'way&kn'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'way&inter'
-            unet2_flag = True
-        elif tt.arg.pool_mode == 'intra':
-            tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
-            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'intra'
+            mode_2 = 'kn'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     elif tt.arg.num_shots == 1 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
-            tt.arg.ks = [0.8, 0.75]  # 10->8->6
-        elif tt.arg.pool_mode == 'support':  # 'support': pooling on support
+        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'way&inter':  # pooling on support by inter way
+        elif tt.arg.pool_mode == 'kn':  # left close support node
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'intra': # left close support node
-            tt.arg.ks = [0.6,0.5] # 5->3->1
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     elif tt.arg.num_shots == 5 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
-            tt.arg.ks = [0.67, 0.5, 0.8, 0.75]  # 30->20->10->8->6
-        elif tt.arg.pool_mode == 'support':
-            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
-        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'inter&intra':
+        elif tt.arg.pool_mode == 'kn':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
+            mode_1 = 'way&kn'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'way&inter'
-            unet2_flag = True
-        elif tt.arg.pool_mode == 'intra':
-            tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
-            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'intra'
+            mode_2 = 'kn'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     else:
         print('wrong shot and T settings!!!')
-        AssertionError()
+        raise NameError('wrong shot and T settings!!!')
 
     # train, test parameters
-    tt.arg.train_iteration = 100000
+    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -136,8 +113,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
+    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
+    tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
 
     # set random seed
     np.random.seed(tt.arg.seed)
@@ -148,16 +125,12 @@ if __name__ == '__main__':
     torch.backends.cudnn.benchmark = False
 
     tt.arg.exp_name = 'D-{}'.format(tt.arg.dataset)
-    tt.arg.exp_name += '_N-{}_K-{}'.format(tt.arg.num_ways, tt.arg.num_shots)
+    tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
-    tt.arg.exp_name += '_P-{}_Pj-{}'.format(tt.arg.pool_mode, tt.arg.proj_mode)
+    tt.arg.exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode, tt.arg.unet_mode)
     tt.arg.exp_name += '_SEED-{}'.format(tt.arg.seed)
 
-    if not tt.arg.exp_name == tt.arg.test_model:
-        print(tt.arg.exp_name)
-        print(tt.arg.test_model)
-        print('Test model and input arguments are mismatched!')
-        AssertionError()
+    print(tt.arg.exp_name)
 
     enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
 
@@ -173,7 +146,13 @@ if __name__ == '__main__':
             unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways,
                                 tt.arg.num_queries)
 
-    test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
+    if tt.arg.dataset == 'mini':
+        test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
+    elif tt.arg.dataset == 'tiered':
+        test_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='test')
+    else:
+        print('Unknown dataset!')
+        raise NameError('Unknown dataset!!!')
 
     data_loader = {'test': test_loader}
 
@@ -184,7 +163,7 @@ if __name__ == '__main__':
 
     checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
     # checkpoint = torch.load('./trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
-
+    tt.arg.seed = 250
     tester.enc_module.load_state_dict(checkpoint['enc_module_state_dict'])
     print("load pre-trained enc_nn done!")
 
@@ -195,6 +174,6 @@ if __name__ == '__main__':
     tester.val_acc = checkpoint['val_acc']
     tester.global_step = checkpoint['iteration']
 
-    print(tester.global_step)
+    print(tester.global_step,tester.val_acc)
 
     tester.eval(partition='test')

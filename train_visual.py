@@ -1,6 +1,6 @@
 from torchtools import *
-from data import MiniImagenetLoader
-from model_visual import EmbeddingImagenet, Unet, Unet2
+from data import MiniImagenetLoader,TieredImagenetLoader
+from model_visual import EmbeddingImagenet, Unet,Unet2
 import pandas as pd
 import shutil
 import os
@@ -42,142 +42,12 @@ class ModelTrainer(object):
         self.val_acc = 0
         self.test_acc = 0
 
-    def train(self):
-        val_acc = self.val_acc
-
-        # set edge mask (to distinguish support and query edges)
-        num_supports = tt.arg.num_ways * tt.arg.num_shots
-        num_queries = tt.arg.num_ways * 1
-        num_samples = num_supports + num_queries
-
-        # for each iteration
-        for iter in range(self.global_step + 1, tt.arg.train_iteration + 1):
-            # init grad
-            self.optimizer.zero_grad()
-
-            # set current step
-            self.global_step = iter
-
-            # load task data list
-            [support_data,
-             support_label,
-             query_data,
-             query_label] = self.data_loader['train'].get_task_batch(num_tasks=tt.arg.meta_batch_size,
-                                                                     num_ways=tt.arg.num_ways,
-                                                                     num_shots=tt.arg.num_shots,
-                                                                     seed=iter + tt.arg.seed)
-
-            # set as single data
-            full_data = torch.cat([support_data, query_data], 1)
-            full_label = torch.cat([support_label, query_label], 1)
-            full_edge = self.label2edge(full_label)
-
-            # set init edge
-            init_edge = full_edge.clone()  # batch_size x 2 x num_samples x num_samples
-            init_edge[:, num_supports:, :] = 0.5
-            init_edge[:, :, num_supports:] = 0.5
-            for i in range(num_queries):
-                init_edge[:, num_supports + i, num_supports + i] = 1.0
-
-
-            # set as train mode
-            self.enc_module.train()
-            self.unet_module.train()
-
-            # (1) encode data
-            full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
-            full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
-            one_hot_label = self.one_hot_encode(tt.arg.num_ways, support_label.long())
-            query_padding = (1 / tt.arg.num_ways) * torch.ones([full_data.shape[0]] + [num_queries] + [tt.arg.num_ways],
-                                                               device=one_hot_label.device)
-            one_hot_label = torch.cat([one_hot_label, query_padding], dim=1)
-            full_data = torch.cat([full_data, one_hot_label], dim=-1)
-
-            if tt.arg.transductive == True:
-                # transduction
-                full_node_out = self.unet_module(init_edge, full_data)
-            else:
-                # non-transduction
-                support_data = full_data[:, :num_supports]  # batch_size x num_support x featdim
-                query_data = full_data[:, num_supports:]  # batch_size x num_query x featdim
-                support_data_tiled = support_data.unsqueeze(1).repeat(1, num_queries, 1,
-                                                                      1)  # batch_size x num_queries x num_support x featdim
-                support_data_tiled = support_data_tiled.view(tt.arg.meta_batch_size * num_queries, num_supports,
-                                                             -1)  # (batch_size x num_queries) x num_support x featdim
-                query_data_reshaped = query_data.contiguous().view(tt.arg.meta_batch_size * num_queries, -1).unsqueeze(
-                    1)  # (batch_size x num_queries) x 1 x featdim
-                input_node_feat = torch.cat([support_data_tiled, query_data_reshaped],
-                                            1)  # (batch_size x num_queries) x (num_support + 1) x featdim
-
-                input_edge_feat = 0.5 * torch.ones(tt.arg.meta_batch_size, num_supports + 1, num_supports + 1).to(
-                    tt.arg.device)  # batch_size x (num_support + 1) x (num_support + 1)
-
-                input_edge_feat[:, :num_supports, :num_supports] = init_edge[:, :num_supports,
-                                                                   :num_supports]  # batch_size x (num_support + 1) x (num_support + 1)
-                input_edge_feat = input_edge_feat.repeat(num_queries, 1,
-                                                         1)  # (batch_size x num_queries) x (num_support + 1) x (num_support + 1)
-
-                # 2. unet
-                node_out = self.unet_module(input_edge_feat,
-                                            input_node_feat)  # (batch_size x num_queries) x (num_support + 1) x num_classes
-                node_out = node_out.view(tt.arg.meta_batch_size, num_queries, num_supports + 1,
-                                         tt.arg.num_ways)  # batch_size x  num_queries x (num_support + 1) x num_classes
-                full_node_out = torch.zeros(tt.arg.meta_batch_size, num_samples, tt.arg.num_ways).to(tt.arg.device)
-                full_node_out[:, :num_supports, :] = node_out[:, :, :num_supports, :].mean(1)
-                full_node_out[:, num_supports:, :] = node_out[:, :, num_supports:, :].squeeze(2)
-
-            # 3. compute loss
-            query_node_out = full_node_out[:,num_supports:]
-            node_pred = torch.argmax(query_node_out, dim=-1)
-            node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
-                        / node_pred.size(0) / num_queries
-            node_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
-                         zip(query_node_out.chunk(query_node_out.size(1), dim=1), full_label[:, num_supports:].chunk(full_label[:, num_supports:].size(1), dim=1))]
-            node_loss = torch.stack(node_loss, dim=0)
-            node_loss = torch.mean(node_loss)
-
-            node_loss.backward()
-
-            self.optimizer.step()
-
-            # adjust learning rate
-            self.adjust_learning_rate(optimizers=[self.optimizer],
-                                      lr=tt.arg.lr,
-                                      iter=self.global_step)
-
-            # logging
-            tt.log_scalar('train/loss', node_loss, self.global_step)
-            tt.log_scalar('train/node_accr', node_accr, self.global_step)
-
-            # evaluation
-            if self.global_step % tt.arg.test_interval == 0:
-                val_acc = self.eval(partition='val')
-
-                is_best = 0
-
-                if val_acc >= self.val_acc:
-                    self.val_acc = val_acc
-                    is_best = 1
-
-                tt.log_scalar('val/best_accr', self.val_acc, self.global_step)
-
-                self.save_checkpoint({
-                    'iteration': self.global_step,
-                    'enc_module_state_dict': self.enc_module.state_dict(),
-                    'unet_module_state_dict': self.unet_module.state_dict(),
-                    'val_acc': val_acc,
-                    'optimizer': self.optimizer.state_dict(),
-                }, is_best)
-
-            tt.log_step(global_step=self.global_step)
-
-
     def eval(self,partition='test', log_flag=True):
         best_acc = 0
 
         # set edge mask (to distinguish support and query edges)
         num_supports = tt.arg.num_ways * tt.arg.num_shots
-        num_queries = tt.arg.num_ways * 1
+        num_queries = tt.arg.num_queries
         num_samples = num_supports + num_queries
 
         query_node_accrs = []
@@ -417,22 +287,22 @@ class ModelTrainer(object):
 
 def set_exp_name():
     exp_name = 'D-{}'.format(tt.arg.dataset)
-    exp_name += '_N-{}_K-{}'.format(tt.arg.num_ways, tt.arg.num_shots)
+    exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
-    exp_name += '_P-{}_Pj-{}'.format(tt.arg.pool_mode,tt.arg.proj_mode)
+    exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
     exp_name += '_SEED-{}'.format(tt.arg.seed)
 
     return exp_name
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:1' if tt.arg.device is None else tt.arg.device
+    tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
     tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
-    tt.arg.num_queries = tt.arg.num_ways*1
-    tt.arg.num_supports = tt.arg.num_ways*tt.arg.num_shots
+    tt.arg.num_queries = tt.arg.num_ways * 1
+    tt.arg.num_supports = tt.arg.num_ways * tt.arg.num_shots
     tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
     if tt.arg.transductive == False:
         tt.arg.meta_batch_size = 20
@@ -445,78 +315,68 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'support' # 'com'/'way'/'support'/'inter&intra'/'way&inter'
-    tt.arg.proj_mode = 'multiHead'# 'com'/'multiHead'
-    unet2_flag = False # the label of using unet2
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode  # 'way'/'support'/'kn'
+    tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode  # 'addold'/'noold'
+    unet2_flag = False  # the label of using unet2
 
     # confirm ks
     if tt.arg.num_shots == 1 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
-            tt.arg.ks = [0.7, 0.5]  # 6->4>2
-        elif tt.arg.pool_mode == 'support': # 'support': pooling on support
-            tt.arg.ks = [0.6,0.5] # 5->3->1
-        elif tt.arg.pool_mode == 'way&inter': # pooling on support by inter way
-            tt.arg.ks = [0.6,0.5] # 5->3->1
+        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
+            tt.arg.ks = [0.6, 0.5]  # 5->3->1
+        elif tt.arg.pool_mode == 'kn':  # left close support node
+            tt.arg.ks = [0.6, 0.5]  # 5->3->1
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
     elif tt.arg.num_shots == 5 and tt.arg.transductive == False:
-        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
-            tt.arg.ks = [0.62, 0.375, 0.67, 0.5]  # 26->16->6->4->2
-        elif tt.arg.pool_mode == 'support':
-            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
-        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
-            tt.arg.ks_2 = [0.6, 0.5] # 5->3->1 # supplementary pooling for fair comparing
+            tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'inter&intra':
+        elif tt.arg.pool_mode == 'kn':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
+            mode_1 = 'way&kn'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'way&inter'
+            mode_2 = 'kn'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     elif tt.arg.num_shots == 1 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'com':  # 'com': pooling all;
-            tt.arg.ks = [0.8, 0.75]  # 10->8->6
-        elif tt.arg.pool_mode == 'support':  # 'support': pooling on support
+        if tt.arg.pool_mode == 'support':  # 'support': pooling on support
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
-        elif tt.arg.pool_mode == 'way&inter':  # pooling on support by inter way
+        elif tt.arg.pool_mode == 'kn':  # left close support node
             tt.arg.ks = [0.6, 0.5]  # 5->3->1
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     elif tt.arg.num_shots == 5 and tt.arg.transductive == True:
-        if tt.arg.pool_mode == 'com':  # 'com' pooling all; no 'way&query'
-            tt.arg.ks = [0.67, 0.5, 0.8, 0.75]  # 30->20->10->8->6
-        elif tt.arg.pool_mode == 'support':
-            tt.arg.ks = [0.6, 0.34, 0.6, 0.5]  # 25->15->5->3->1
-        elif tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
+        if tt.arg.pool_mode == 'way':  # 'way' pooling on support by  way
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
             mode_1 = 'way'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
             mode_2 = 'support'
             unet2_flag = True
-        elif tt.arg.pool_mode == 'inter&intra':
+        elif tt.arg.pool_mode == 'kn':
             tt.arg.ks_1 = [0.6, 0.5]  # 5->3->1
-            mode_1 = 'way&intra'
+            mode_1 = 'way&kn'
             tt.arg.ks_2 = [0.6, 0.5]  # 5->3->1 # supplementary pooling for fair comparing
-            mode_2 = 'way&inter'
+            mode_2 = 'kn'
             unet2_flag = True
         else:
             print('wrong mode setting!!!')
-            AssertionError()
+            raise NameError('wrong mode setting!!!')
+
     else:
         print('wrong shot and T settings!!!')
-        AssertionError()
-
+        raise NameError('wrong shot and T settings!!!')
 
     # train, test parameters
-    tt.arg.train_iteration = 100000
+    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
@@ -525,8 +385,8 @@ if __name__ == '__main__':
     tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-    tt.arg.dec_lr = 10000
-    tt.arg.dropout = 0.1
+    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
+    tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
 
     tt.arg.experiment = set_exp_name() if tt.arg.experiment is None else tt.arg.experiment
 
@@ -559,14 +419,18 @@ if __name__ == '__main__':
         if unet2_flag == False:
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
         else:
-            unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways, tt.arg.num_queries)
-
+            unet_module = Unet2(tt.arg.ks_1, tt.arg.ks_2, mode_1, mode_2, tt.arg.in_dim, tt.arg.num_ways,
+                                tt.arg.num_queries)
 
     if tt.arg.dataset == 'mini':
         train_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'tiered':
+        train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
     else:
         print('Unknown dataset!')
+        raise NameError('Unknown dataset!!!')
 
     data_loader = {'train': train_loader,
                    'val': valid_loader
