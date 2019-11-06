@@ -625,16 +625,6 @@ class Unet2(nn.Module):
         A_new = self._modules['out_mlp'](X)
         X = self._modules['out_gcn'](A_new, A_old, X)
 
-        # visual_X(7)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['out'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
-
         out = F.log_softmax(X,dim=-1)
 
         return out
