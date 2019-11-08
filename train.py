@@ -326,7 +326,7 @@ if __name__ == '__main__':
 
     tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'tiered' if tt.arg.dataset is None else tt.arg.dataset
+    tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways*1
