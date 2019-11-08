@@ -8,7 +8,7 @@ from train import ModelTrainer
 
 if __name__ == '__main__':
 
-    tt.arg.test_model = 'D-mini_N-5_K-5_Q-5_B-40_T-True_P-kn_Un-addold_SEED-222' if tt.arg.test_model is None else tt.arg.test_model
+    tt.arg.test_model = 'D-mini_N-5_K-5_Q-5_B-40_T-True_P-kn_Un-addold' if tt.arg.test_model is None else tt.arg.test_model
 
     list1 = tt.arg.test_model.split("_")
     param = {}
@@ -128,7 +128,6 @@ if __name__ == '__main__':
     tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
     tt.arg.exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode, tt.arg.unet_mode)
-    tt.arg.exp_name += '_SEED-{}'.format(tt.arg.seed)
 
     print(tt.arg.exp_name)
 
@@ -161,8 +160,8 @@ if __name__ == '__main__':
                           unet_module=unet_module,
                           data_loader=data_loader)
 
-    checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
-    # checkpoint = torch.load('./trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
+    # checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
+    checkpoint = torch.load('HGNN_trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
     tt.arg.seed = 250
     tester.enc_module.load_state_dict(checkpoint['enc_module_state_dict'])
     print("load pre-trained enc_nn done!")
