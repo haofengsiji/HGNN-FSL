@@ -283,8 +283,6 @@ class Unet(nn.Module):
             up_idx = self.l_n - i - 1
             A_old, idx_batch = adj_ms[up_idx], indices_list[up_idx]
             A_old,X = self._modules['unpool_{}'.format(i)](A_old, X, idx_batch)
-            A_new = self._modules['up_mlp_{}'.format(up_idx)](X)
-            X = self._modules['up_gcn_{}'.format(up_idx)](A_new, A_old, X)
             X = X.add(down_outs[up_idx])
             A_new = self._modules['up_mlp_{}'.format(up_idx)](X)
             X = self._modules['up_gcn_{}'.format(up_idx)](A_new, A_old, X)
