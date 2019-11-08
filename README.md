@@ -19,6 +19,7 @@ If you find this code useful you can cite us using the following bibTex:
 * python 3.6.9
 * pytorch 1.2.0
 * torchvision  0.4.0
+* tensorboardx
 * numpy
 * pandas
 * tqdm
