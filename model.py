@@ -335,8 +335,8 @@ class Unet2(nn.Module):
         self.add_module('bottom_mlp', bottom_mlp)
         self.add_module('bottom_gcn', bottom_gcn)
 
-        out_mlp = MLP(in_dim=in_dim*2)
-        out_gcn = GCN(in_dim=in_dim*2,out_dim=num_classes)
+        out_mlp = MLP(in_dim=in_dim)
+        out_gcn = GCN(in_dim=in_dim,out_dim=num_classes)
         self.add_module('out_mlp', out_mlp)
         self.add_module('out_gcn', out_gcn)
 
@@ -370,7 +370,6 @@ class Unet2(nn.Module):
             X = X.add(down_outs[up_idx])
             A_new = self._modules['up_mlp_{}'.format(up_idx)](X)
             X = self._modules['up_gcn_{}'.format(up_idx)](A_new, A_old, X)
-        X = torch.cat([X, org_X], -1)
         A_old = A_new
         A_new = self._modules['out_mlp'](X)
         X = self._modules['out_gcn'](A_new, A_old, X)

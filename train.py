@@ -318,7 +318,7 @@ def set_exp_name():
     exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
     exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
-    exp_name += '_SEED-{}'.format(tt.arg.seed)
+    exp_name += '_SEED-{}_noskip'.format(tt.arg.seed)
 
     return exp_name
 
@@ -326,7 +326,7 @@ if __name__ == '__main__':
 
     tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'tiered' if tt.arg.dataset is None else tt.arg.dataset
+    tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways*1
@@ -343,8 +343,7 @@ if __name__ == '__main__':
     tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
-    tt.arg.pool_mode = 'way' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
-    print(tt.arg.pool_mode=='kn')
+    tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
     tt.arg.unet_mode = 'addold' if tt.arg.unet_mode is None else tt.arg.unet_mode # 'addold'/'noold'
     unet2_flag = False # the label of using unet2
 
