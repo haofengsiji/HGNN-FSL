@@ -318,7 +318,7 @@ def set_exp_name():
     exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots,tt.arg.num_queries)
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
     exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
-    exp_name += '_SEED-{}_6'.format(tt.arg.seed)
+    exp_name += '_SEED-{}_2'.format(tt.arg.seed)
 
     return exp_name
 

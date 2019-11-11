@@ -112,7 +112,7 @@ if __name__ == '__main__':
     tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
     tt.arg.exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode, tt.arg.unet_mode)
-    tt.arg.exp_name += '_SEED-{}_6'.format(tt.arg.seed)
+    tt.arg.exp_name += '_SEED-{}_2'.format(tt.arg.seed)
 
     print(tt.arg.exp_name)
 
