@@ -103,7 +103,6 @@ You can download our experiment results and trained models from [here](https://d
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
-|    TPN     |        69.43        |
 |    GNN*    |        75.41        |
 |    EGNN    |        76.37        |
 | (ours)HGNN |      **79.64**      |
@@ -114,6 +113,7 @@ GNN transductive mode was implemented in [here](https://github.com/gaieepo/few-s
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
+|    GNN     |                     |
 |    EGNN    |        70.98        |
 | (ours)HGNN |      **73.01**      |
 
@@ -121,8 +121,7 @@ GNN transductive mode was implemented in [here](https://github.com/gaieepo/few-s
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
-|    TPN     |        72.58        |
+|    GNN     |                     |
 |    EGNN    |        80.15        |
 | (ours)HGNN |      **83.34**      |
 
-### 
