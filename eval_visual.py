@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader,TieredImagenetLoader
+from data_visual import MiniImagenetLoader,TieredImagenetLoader
 from model_visual import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os

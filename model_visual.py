@@ -239,23 +239,13 @@ class Unet(nn.Module):
                 np_X = X[j].detach().cpu().numpy()
                 data = [['Input_feature'] + list(np_X)]
                 df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
+                df.to_csv('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter),
                           header=False,
                           index=False, mode='a')
 
         A_new = self._modules['start_mlp'](X)
         X = self._modules['start_gcn'](A_new, A_old, X)
         org_X = X
-
-        # visual_X(2)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['start_gcn'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
 
         for i in range(self.l_n):
             A_old = A_new
@@ -264,55 +254,13 @@ class Unet(nn.Module):
             adj_ms.append(A_new)
             down_outs.append(X)
 
-            # visual_X(3.1)
-            if tt.arg.visual == True:
-                batch = X.size(0)
-                for j in range(batch):
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['down_mlp_pool_before_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
-
             A_new, X, idx_batch = self._modules['pool_{}'.format(i)](A_new, X)
             indices_list.append(idx_batch)
-
-            # visual_X(3.2)
-            if tt.arg.visual == True:
-                batch = X.size(0)
-                for j in range(batch):
-                    if i == 0:
-                        old_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=0, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    else:
-                        old_idx = pd.read_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                                              skiprows=4 + (i-1) * 3, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    np_idx = old_idx[idx_batch[j].cpu().numpy()]
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['label'] + list(np_idx),
-                            ['down_mlp_pool_after_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
 
         A_old = A_new
         A_new = self._modules['bottom_mlp'](X)
         X = self._modules['bottom_gcn'](A_new, A_old, X)
 
-        # visual_X(4)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['bottom_mlp'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
 
         for i in range(self.l_n):
             up_idx = self.l_n - i - 1
@@ -322,26 +270,6 @@ class Unet(nn.Module):
             A_new = self._modules['up_mlp_{}'.format(up_idx)](X)
             X = self._modules['up_gcn_{}'.format(up_idx)](A_new, A_old, X)
 
-            # visual_X(5)
-            if tt.arg.visual == True:
-                for j in range(batch):
-                    if up_idx == 0:
-                        np_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=0, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    else:
-                        np_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=1 + up_idx * 3, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['label'] + list(np_idx),
-                            ['unpool_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
 
         X = torch.cat([X, org_X], -1)
 
@@ -351,23 +279,13 @@ class Unet(nn.Module):
                 np_X = X[j].detach().cpu().numpy()
                 data = [['skip_connection'] + list(np_X)]
                 df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
+                df.to_csv('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter),
                           header=False,
                           index=False, mode='a')
 
         A_old = A_new
         A_new = self._modules['out_mlp'](X)
         X = self._modules['out_gcn'](A_new, A_old, X)
-
-        # visual_X(7)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['out'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
 
         out = F.log_softmax(X,dim=-1)
 
@@ -500,7 +418,7 @@ class Unet2(nn.Module):
                 np_X = X[j].detach().cpu().numpy()
                 data = [['Input_feature'] + list(np_X)]
                 df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
+                df.to_csv('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter),
                           header=False,
                           index=False, mode='a')
 
@@ -508,15 +426,6 @@ class Unet2(nn.Module):
         X = self._modules['start_gcn'](A_new, A_old, X)
         org_X = X
 
-        # visual_X(2)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['start_gcn'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
 
         for i in range(self.l_n):
             if i < self.l_n_1:
@@ -529,56 +438,15 @@ class Unet2(nn.Module):
             adj_ms.append(A_new)
             down_outs.append(X)
 
-            # visual_X(3.1)
-            if tt.arg.visual == True:
-                batch = X.size(0)
-                for j in range(batch):
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['down_mlp_pool_before_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
 
             A_new, X, idx_batch = self._modules['pool_{}'.format(i)](A_new, X)
             indices_list.append(idx_batch)
 
-            # visual_X(3.2)
-            if tt.arg.visual == True:
-                batch = X.size(0)
-                for j in range(batch):
-                    if i == 0:
-                        old_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=0, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    else:
-                        old_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=4 + (i - 1) * 3, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    np_idx = old_idx[idx_batch[j].cpu().numpy()]
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['label'] + list(np_idx),
-                            ['down_mlp_pool_after_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
 
         A_old = A_new
         A_new = self._modules['bottom_mlp'](X)
         X = self._modules['bottom_gcn'](A_new, A_old, X)
 
-        # visual_X(4)
-        if tt.arg.visual == True:
-            for j in range(batch):
-                np_X = X[j].detach().cpu().numpy()
-                data = [['bottom_mlp'] + list(np_X)]
-                df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                          header=False,
-                          index=False, mode='a')
 
         for i in range(self.l_n):
             up_idx = self.l_n - i - 1
@@ -588,26 +456,6 @@ class Unet2(nn.Module):
             A_new = self._modules['up_mlp_{}'.format(up_idx)](X)
             X = self._modules['up_gcn_{}'.format(up_idx)](A_new, A_old, X)
 
-            # visual_X(5)
-            if tt.arg.visual == True:
-                for j in range(batch):
-                    if up_idx == 0:
-                        np_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=0, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    else:
-                        np_idx = pd.read_csv(
-                            'visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                            skiprows=1 + up_idx * 3, nrows=1, header=None).to_numpy(
-                            copy=True).reshape(-1)[1:].astype(np.int32)
-                    np_X = X[j].detach().cpu().numpy()
-                    data = [['label'] + list(np_idx),
-                            ['unpool_{}'.format(i)] + list(np_X)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
-                              header=False,
-                              index=False, mode='a')
 
         X = torch.cat([X, org_X], -1)
 
@@ -615,9 +463,9 @@ class Unet2(nn.Module):
         if tt.arg.visual == True:
             for j in range(batch):
                 np_X = X[j].detach().cpu().numpy()
-                data = [['skip_connection'] + list(np_X)]
+                data = [['last_layer'] + list(np_X)]
                 df = pd.DataFrame(data)
-                df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * batch + j),
+                df.to_csv('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter),
                           header=False,
                           index=False, mode='a')
 
