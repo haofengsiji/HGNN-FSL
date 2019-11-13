@@ -81,13 +81,11 @@ class ModelTrainer(object):
                     for i in range(tt.arg.test_batch_size):
 
                         # visual_X(0)
-                        if os.path.exists('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter)):
-                            os.remove('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter))
+                        if os.path.exists('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i)):
+                            os.remove('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i))
 
                         if not os.path.exists('visual_%s/%03d' % (tt.arg.exp_name,iter*tt.arg.test_batch_size+i)):
                             os.makedirs('visual_%s/%03d' % (tt.arg.exp_name,iter*tt.arg.test_batch_size+i))
-                        if not os.path.exists('visual_%s/f_%03d' % (tt.arg.exp_name,iter)):
-                            os.makedirs('visual_%s/f_%03d' % (tt.arg.exp_name,iter))
                         for j in range(support_data.size(1)):
                             pic = inv_normalize(support_data[i, j])
                             im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
@@ -97,13 +95,13 @@ class ModelTrainer(object):
                             im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
                             im.save('visual_%s/%03d/%02d_c%d.jpg' % (tt.arg.exp_name, iter * tt.arg.test_batch_size + i, j+num_supports, query_label[i, j]))
 
-                    # save label
-                    np_label = torch.cat((support_label[0, :],query_label[0, :]),dim=0).detach().cpu().numpy()
-                    data = [['label'] + list(np_label)]
-                    df = pd.DataFrame(data)
-                    df.to_csv('visual_%s/f_%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter),
-                              header=False,
-                              index=False)
+                        # save label
+                        np_label = torch.cat((support_label[i, :],query_label[i, :]),dim=0).detach().cpu().numpy()
+                        data = [['label'] + list(np_label)]
+                        df = pd.DataFrame(data)
+                        df.to_csv('visual_%s/%03d/feature_record.csv' % (tt.arg.exp_name, tt.arg.iter * tt.arg.test_batch_size + i),
+                                  header=False,
+                                  index=False)
 
                 else:
                     support_data_tiled = support_data.unsqueeze(1).repeat(1, num_queries, 1,
@@ -122,6 +120,39 @@ class ModelTrainer(object):
                         mean=[-m / s for m, s in zip(mean_pix, std_pix)],
                         std=[1 / s for s in std_pix]
                     )
+                    if not os.path.exists('visual_%s' % tt.arg.exp_name):
+                        os.makedirs('visual_%s' % tt.arg.exp_name)
+                    trand_batch_size = tt.arg.test_batch_size*num_queries
+                    for i in range(trand_batch_size):
+
+                        # visual_X(0)
+                        if os.path.exists('visual_%s/%03d/feature_record.csv' % (
+                                            tt.arg.exp_name, tt.arg.iter * trand_batch_size + i)):
+                            os.remove('visual_%s/%03d/feature_record.csv' % (
+                                        tt.arg.exp_name, tt.arg.iter * trand_batch_size + i))
+
+                        if not os.path.exists('visual_%s/%03d' % (tt.arg.exp_name, iter * trand_batch_size + i)):
+                            os.makedirs('visual_%s/%03d' % (tt.arg.exp_name, iter * trand_batch_size + i))
+                        for j in range(support_data_tiled.size(1)):
+                            pic = inv_normalize(support_data_tiled[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg'
+                                    % (tt.arg.exp_name, iter * trand_batch_size + i, j, support_label_tiled[i, j]))
+                        for j in range(query_data_reshaped.size(1)):
+                            pic = inv_normalize(query_data_reshaped[i, j])
+                            im = transforms.ToPILImage()(pic.cpu()).convert('RGB')
+                            im.save('visual_%s/%03d/%02d_c%d.jpg'
+                                    % (tt.arg.exp_name, iter * trand_batch_size + i, j + num_supports, query_label_reshaped[i, j]))
+
+                        # save label
+                        np_label = torch.cat((support_label_tiled[i, :], query_label_reshaped[i, :]), dim=0).detach().cpu().numpy()
+                        data = [['label'] + list(np_label)]
+                        df = pd.DataFrame(data)
+                        df.to_csv('visual_%s/%03d/feature_record.csv' % (
+                        tt.arg.exp_name, tt.arg.iter * trand_batch_size + i),
+                                  header=False,
+                                  index=False)
+
 
 
 
