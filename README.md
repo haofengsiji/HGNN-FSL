@@ -107,7 +107,7 @@ You can download our experiment results and trained models from [here](https://d
 |    EGNN    |        76.37        |
 | (ours)HGNN |      **79.64**      |
 
-GNN transductive mode was implemented in [here](https://github.com/gaieepo/few-shot-gnn) by gaieepo.
+
 
 ### tieredImageNet, non-transductive
 
@@ -121,7 +121,8 @@ GNN transductive mode was implemented in [here](https://github.com/gaieepo/few-s
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
-|    GNN     |                     |
+|    GNN*    |                     |
 |    EGNN    |        80.15        |
 | (ours)HGNN |      **83.34**      |
 
+GNN transductive mode was implemented in [here](https://github.com/gaieepo/few-shot-gnn) by gaieepo.
