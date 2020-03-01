@@ -125,9 +125,10 @@ class ModelTrainer(object):
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
             node_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
-                         zip(full_node_out.chunk(full_node_out.size(1), dim=1), full_label.chunk(full_label.size(1), dim=1))]
+                         zip(query_node_out.chunk(query_node_out.size(1), dim=1), full_label[:, num_supports:].chunk(full_label[:, num_supports:].size(1), dim=1))]
             node_loss = torch.stack(node_loss, dim=0)
             node_loss = torch.mean(node_loss)
+
             node_loss.backward()
             # # query loss
             # qnode_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
@@ -137,6 +138,7 @@ class ModelTrainer(object):
             # qnode_loss = torch.mean(qnode_loss)
             # total_loss = 0.5*node_loss + 0.5*qnode_loss
             # total_loss.backward()
+
             # full_node_out_1 = full_node_out.unsqueeze(1)
             # full_node_out_2 = torch.transpose(full_node_out_1, 1, 2)
             # full_dist = torch.norm(full_node_out_1 - full_node_out_2,2,-1)
