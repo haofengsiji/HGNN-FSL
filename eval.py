@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader,TieredImagenetLoader
+from data import MiniImagenetLoader,TieredImagenetLoader,Cub200Loader
 from model import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os
@@ -128,6 +128,7 @@ if __name__ == '__main__':
     tt.arg.exp_name += '_N-{}_K-{}_Q-{}'.format(tt.arg.num_ways, tt.arg.num_shots, tt.arg.num_queries)
     tt.arg.exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size, tt.arg.transductive)
     tt.arg.exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode, tt.arg.unet_mode)
+    tt.arg.exp_name += '_SEED-222'
 
     print(tt.arg.exp_name)
 
@@ -149,6 +150,8 @@ if __name__ == '__main__':
         test_loader = MiniImagenetLoader(root=tt.arg.dataset_root, partition='test')
     elif tt.arg.dataset == 'tiered':
         test_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='test')
+    elif tt.arg.dataset == 'cub':
+        test_loader = Cub200Loader(root=tt.arg.dataset_root, partition='test')
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
@@ -160,9 +163,9 @@ if __name__ == '__main__':
                           unet_module=unet_module,
                           data_loader=data_loader)
 
-    # checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
-    checkpoint = torch.load('HGNN_trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
-    tt.arg.seed = 250
+    checkpoint = torch.load('asset/checkpoints/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
+    # checkpoint = torch.load('HGNN_trained_models/{}/'.format(tt.arg.exp_name) + 'model_best.pth.tar',map_location=tt.arg.device)
+
     tester.enc_module.load_state_dict(checkpoint['enc_module_state_dict'])
     print("load pre-trained enc_nn done!")
 

@@ -1,6 +1,6 @@
 from torchtools import *
-from data import MiniImagenetLoader,TieredImagenetLoader
-from model import EmbeddingImagenet, Unet,Unet2
+from data import MiniImagenetLoader,TieredImagenetLoader,CifarFsLoader,Cub200Loader
+from model import EmbeddingImagenet, Unet,Unet2,wrn,ResNet
 import shutil
 import os
 import random
@@ -14,12 +14,6 @@ class ModelTrainer(object):
         self.enc_module = enc_module.to(tt.arg.device)
         self.unet_module = unet_module.to(tt.arg.device)
 
-        if tt.arg.num_gpus > 1:
-            print('Construct multi-gpu model ...')
-            self.enc_module = nn.DataParallel(self.enc_module, device_ids=[2, 3], dim=0)
-            self.unet_module = nn.DataParallel(self.unet_module, device_ids=[2, 3], dim=0)
-
-            print('done!\n')
 
         # get data loader
         self.data_loader = data_loader
@@ -126,15 +120,40 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:,num_supports:]
+            full_label = full_label.to(query_node_out.device)
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
             node_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
-                         zip(query_node_out.chunk(query_node_out.size(1), dim=1), full_label[:, num_supports:].chunk(full_label[:, num_supports:].size(1), dim=1))]
+                         zip(full_node_out.chunk(full_node_out.size(1), dim=1), full_label.chunk(full_label.size(1), dim=1))]
             node_loss = torch.stack(node_loss, dim=0)
             node_loss = torch.mean(node_loss)
-
             node_loss.backward()
+            # # query loss
+            # qnode_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
+            #              zip(query_node_out.chunk(query_node_out.size(1), dim=1),
+            #                  full_label[:, num_supports:].chunk(full_label[:, num_supports:].size(1), dim=1))]
+            # qnode_loss = torch.stack(qnode_loss, dim=0)
+            # qnode_loss = torch.mean(qnode_loss)
+            # total_loss = 0.5*node_loss + 0.5*qnode_loss
+            # total_loss.backward()
+            # full_node_out_1 = full_node_out.unsqueeze(1)
+            # full_node_out_2 = torch.transpose(full_node_out_1, 1, 2)
+            # full_dist = torch.norm(full_node_out_1 - full_node_out_2,2,-1)
+            # query_dist = full_dist[:,num_supports:,:num_supports]
+            # cluster_loss = []
+            # for i in range(tt.arg.num_ways):
+            #     pos = torch.sum(query_dist[:,i,i*tt.arg.num_queries:i*tt.arg.num_queries+tt.arg.num_shots],-1)
+            #     neg = torch.sum(query_dist[:,i,:],-1) - pos
+            #     cluster_loss.append(torch.max((tt.arg.num_ways-1)*pos-neg+1,torch.zeros_like(neg)))
+            # cluster_loss = torch.cat(cluster_loss, dim=0)
+            # cluster_loss = torch.mean(cluster_loss)
+            #
+            # query_pred = torch.reshape(query_dist,(query_dist.size(0),query_dist.size(1),tt.arg.num_ways,-1))
+            # query_pred = torch.argmin(torch.sum(query_pred,-1),-1)
+            # node_accr = torch.sum(torch.eq(query_pred, full_label[:, num_supports:].long())).float() \
+            #              / query_pred.size(0) / num_queries
+            # cluster_loss.backward()
 
             self.optimizer.step()
 
@@ -145,7 +164,11 @@ class ModelTrainer(object):
 
             # logging
             tt.log_scalar('train/loss', node_loss, self.global_step)
+            #tt.log_scalar('train/query_loss', qnode_loss, self.global_step)
             tt.log_scalar('train/node_accr', node_accr, self.global_step)
+            # # logging
+            # tt.log_scalar('train/cluster_loss', cluster_loss, self.global_step)
+            # tt.log_scalar('train/node_accr', node_accr, self.global_step)
 
             # evaluation
             if self.global_step % tt.arg.test_interval == 0:
@@ -254,11 +277,23 @@ class ModelTrainer(object):
 
             # 3. compute loss
             query_node_out = full_node_out[:, num_supports:]
+            full_label = full_label.to(query_node_out.device)
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
 
+
+            # full_node_out_1 = full_node_out.unsqueeze(1)
+            # full_node_out_2 = torch.transpose(full_node_out_1, 1, 2)
+            # full_dist = torch.norm(full_node_out_1 - full_node_out_2, 2, -1)
+            # query_dist = full_dist[:, num_supports:, :num_supports]
+            #
+            # query_pred = torch.reshape(query_dist, (query_dist.size(0), query_dist.size(1), tt.arg.num_ways, -1))
+            # query_pred = torch.argmin(torch.sum(query_pred, -1), -1)
+            # node_accr = torch.sum(torch.eq(query_pred, full_label[:, num_supports:].long())).float() \
+            #             / query_pred.size(0) / num_queries
             query_node_accrs += [node_accr.item()]
+
 
         # logging
         if log_flag:
@@ -310,14 +345,15 @@ def set_exp_name():
     exp_name += '_B-{}_T-{}'.format(tt.arg.meta_batch_size,tt.arg.transductive)
     exp_name += '_P-{}_Un-{}'.format(tt.arg.pool_mode,tt.arg.unet_mode)
     exp_name += '_SEED-{}'.format(tt.arg.seed)
+    exp_name += '_Backbone-{}'.format(tt.arg.backbone)
 
     return exp_name
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
+    tt.arg.device = 'cuda:7' if tt.arg.device is None else tt.arg.device
     tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'mini' if tt.arg.dataset is None else tt.arg.dataset
+    tt.arg.dataset = 'cifar' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways*1
@@ -328,10 +364,13 @@ if __name__ == '__main__':
     else:
         tt.arg.meta_batch_size = 40
     tt.arg.seed = 222 if tt.arg.seed is None else tt.arg.seed
-    tt.arg.num_gpus = 1
+    tt.arg.num_gpus = 4
 
     # model parameter related
-    tt.arg.emb_size = 128
+    tt.arg.backbone = 'rn' # 'simple' 'wrn' 'rn'
+    if tt.arg.backbone == 'wrn' or tt.arg.backbone == 'rn':
+        tt.arg.meta_batch_size = 16
+    tt.arg.emb_size = 64
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
@@ -396,13 +435,13 @@ if __name__ == '__main__':
 
 
     # train, test parameters
-    tt.arg.train_iteration = 100000 if tt.arg.dataset == 'mini' else 200000
+    tt.arg.train_iteration = 200000 if tt.arg.dataset == 'tiered' else 100000
     tt.arg.test_iteration = 10000
     tt.arg.test_interval = 5000
     tt.arg.test_batch_size = 10
-    tt.arg.log_step = 1000
+    tt.arg.log_step = 10 if tt.arg.log_step is None else tt.arg.log_step
 
-    tt.arg.lr = 1e-3
+    tt.arg.lr = 1e-4
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
     tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
@@ -428,8 +467,12 @@ if __name__ == '__main__':
     if not os.path.exists('asset/checkpoints/' + tt.arg.experiment):
         os.makedirs('asset/checkpoints/' + tt.arg.experiment)
 
-    enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
-
+    if tt.arg.backbone == 'wrn':
+        enc_module = wrn(tt.arg.emb_size)
+    elif tt.arg.backbone == 'rn':
+        enc_module = ResNet(tt.arg.emb_size)
+    else:
+        enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
     if tt.arg.transductive == False:
         if unet2_flag == False:
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, 1)
@@ -447,6 +490,12 @@ if __name__ == '__main__':
     elif tt.arg.dataset == 'tiered':
         train_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='train')
         valid_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'cifar':
+        train_loader = CifarFsLoader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = CifarFsLoader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'cub':
+        train_loader = Cub200Loader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = Cub200Loader(root=tt.arg.dataset_root, partition='val')
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
