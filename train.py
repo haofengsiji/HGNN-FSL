@@ -130,32 +130,6 @@ class ModelTrainer(object):
             node_loss = torch.mean(node_loss)
 
             node_loss.backward()
-            # # query loss
-            # qnode_loss = [self.node_loss(data.squeeze(1), label.squeeze(1).long()) for (data, label) in
-            #              zip(query_node_out.chunk(query_node_out.size(1), dim=1),
-            #                  full_label[:, num_supports:].chunk(full_label[:, num_supports:].size(1), dim=1))]
-            # qnode_loss = torch.stack(qnode_loss, dim=0)
-            # qnode_loss = torch.mean(qnode_loss)
-            # total_loss = 0.5*node_loss + 0.5*qnode_loss
-            # total_loss.backward()
-
-            # full_node_out_1 = full_node_out.unsqueeze(1)
-            # full_node_out_2 = torch.transpose(full_node_out_1, 1, 2)
-            # full_dist = torch.norm(full_node_out_1 - full_node_out_2,2,-1)
-            # query_dist = full_dist[:,num_supports:,:num_supports]
-            # cluster_loss = []
-            # for i in range(tt.arg.num_ways):
-            #     pos = torch.sum(query_dist[:,i,i*tt.arg.num_queries:i*tt.arg.num_queries+tt.arg.num_shots],-1)
-            #     neg = torch.sum(query_dist[:,i,:],-1) - pos
-            #     cluster_loss.append(torch.max((tt.arg.num_ways-1)*pos-neg+1,torch.zeros_like(neg)))
-            # cluster_loss = torch.cat(cluster_loss, dim=0)
-            # cluster_loss = torch.mean(cluster_loss)
-            #
-            # query_pred = torch.reshape(query_dist,(query_dist.size(0),query_dist.size(1),tt.arg.num_ways,-1))
-            # query_pred = torch.argmin(torch.sum(query_pred,-1),-1)
-            # node_accr = torch.sum(torch.eq(query_pred, full_label[:, num_supports:].long())).float() \
-            #              / query_pred.size(0) / num_queries
-            # cluster_loss.backward()
 
             self.optimizer.step()
 
@@ -166,11 +140,8 @@ class ModelTrainer(object):
 
             # logging
             tt.log_scalar('train/loss', node_loss, self.global_step)
-            #tt.log_scalar('train/query_loss', qnode_loss, self.global_step)
             tt.log_scalar('train/node_accr', node_accr, self.global_step)
-            # # logging
-            # tt.log_scalar('train/cluster_loss', cluster_loss, self.global_step)
-            # tt.log_scalar('train/node_accr', node_accr, self.global_step)
+
 
             # evaluation
             if self.global_step % tt.arg.test_interval == 0:
@@ -283,17 +254,6 @@ class ModelTrainer(object):
             node_pred = torch.argmax(query_node_out, dim=-1)
             node_accr = torch.sum(torch.eq(node_pred, full_label[:, num_supports:].long())).float() \
                         / node_pred.size(0) / num_queries
-
-
-            # full_node_out_1 = full_node_out.unsqueeze(1)
-            # full_node_out_2 = torch.transpose(full_node_out_1, 1, 2)
-            # full_dist = torch.norm(full_node_out_1 - full_node_out_2, 2, -1)
-            # query_dist = full_dist[:, num_supports:, :num_supports]
-            #
-            # query_pred = torch.reshape(query_dist, (query_dist.size(0), query_dist.size(1), tt.arg.num_ways, -1))
-            # query_pred = torch.argmin(torch.sum(query_pred, -1), -1)
-            # node_accr = torch.sum(torch.eq(query_pred, full_label[:, num_supports:].long())).float() \
-            #             / query_pred.size(0) / num_queries
             query_node_accrs += [node_accr.item()]
 
 
@@ -361,18 +321,13 @@ if __name__ == '__main__':
     tt.arg.num_queries = tt.arg.num_ways*1
     tt.arg.num_supports = tt.arg.num_ways*tt.arg.num_shots
     tt.arg.transductive = True if tt.arg.transductive is None else tt.arg.transductive
-    if tt.arg.transductive == False:
-        tt.arg.meta_batch_size = 20
-    else:
-        tt.arg.meta_batch_size = 40
+    tt.arg.meta_batch_size = 40 if tt.arg.meta_batch_size is None else tt.arg.meta_batch_size
     tt.arg.seed = 222 if tt.arg.seed is None else tt.arg.seed
     tt.arg.num_gpus = 4
 
     # model parameter related
     tt.arg.backbone = 'rn' # 'simple' 'wrn' 'rn'
-    if tt.arg.backbone == 'wrn' or tt.arg.backbone == 'rn':
-        tt.arg.meta_batch_size = 16
-    tt.arg.emb_size = 64
+    tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
@@ -443,10 +398,10 @@ if __name__ == '__main__':
     tt.arg.test_batch_size = 10
     tt.arg.log_step = 10 if tt.arg.log_step is None else tt.arg.log_step
 
-    tt.arg.lr = 1e-4
+    tt.arg.lr = 1e-3
     tt.arg.grad_clip = 5
     tt.arg.weight_decay = 1e-6
-    tt.arg.dec_lr = 10000 if tt.arg.dataset == 'mini' else 20000
+    tt.arg.dec_lr = 15000 if tt.arg.dataset == 'mini' else 20000
     tt.arg.dropout = 0.1 if tt.arg.dataset == 'mini' else 0.0
 
     tt.arg.experiment = set_exp_name() if tt.arg.experiment is None else tt.arg.experiment
