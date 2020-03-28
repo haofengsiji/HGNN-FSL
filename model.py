@@ -155,13 +155,14 @@ class Bottleneck(nn.Module):
 
 class ResNet(nn.Module):
 
-    def __init__(self, num_classes,block=Bottleneck, layers=[3,4,23,3], zero_init_residual=False,
+    def __init__(self, num_classes, layers=[1,1,1,1], zero_init_residual=False,
                  groups=1, width_per_group=64, replace_stride_with_dilation=None,
                  norm_layer=None):
         super(ResNet, self).__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         self._norm_layer = norm_layer
+        block=Bottleneck
 
         self.inplanes = 64
         self.dilation = 1
