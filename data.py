@@ -8,8 +8,9 @@ from PIL import Image as pil_image
 import pickle
 from itertools import islice
 from torchvision import transforms
-from   tqdm import tqdm
+from tqdm import tqdm
 import cv2
+from scipy.io import loadmat
 
 
 class MiniImagenetLoader(data.Dataset):
@@ -239,7 +240,7 @@ class TieredImagenetLoader(data.Dataset):
         query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
 
         return [support_data, support_label, query_data, query_label]
-        
+
 class CifarFsLoader(data.Dataset):
     def __init__(self, root, partition='train'):
         super(CifarFsLoader, self).__init__()
@@ -281,7 +282,7 @@ class CifarFsLoader(data.Dataset):
         data_c = {}
 
         for i in range(len(data['labels'])):
-    
+
                 # resize
                 image_data = pil_image.fromarray(np.uint8(data['data'][i]))
                 image_data = image_data.resize((self.data_size[2], self.data_size[1]))
@@ -486,3 +487,116 @@ class Cub200Loader(data.Dataset):
         query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
 
         return [support_data, support_label, query_data, query_label]
+
+class ImNetLoader(data.Dataset):
+    def __init__(self, root, partition='train'):
+        super(ImNetLoader, self).__init__()
+        # set dataset information
+        self.root = root
+        self.partition = partition
+        self.data_size = [1024]
+        # load data
+        self.data = self.load_dataset()
+
+    def load_dataset(self):
+        # load data
+        dataset_path = os.path.join(self.root,'ImNet_2_demo_data.mat')
+        annots = loadmat(dataset_path)
+
+        if self.partition == 'train':
+            num_class = annots['Y'].shape[1]
+            num_sample = annots['Y'].shape[0]
+            C_indexs = np.argmax(annots['Y'],axis=1)
+            data = [[] for _ in  range(num_class)]
+            for i in range(num_sample):
+                data[C_indexs[i]].append(annots['X_tr'][i])
+
+        if self.partition == 'val':
+            label_map = {}
+            for c in annots['Y_te']:
+                if int(c) not in label_map:
+                    c_index = len(label_map)
+                    label_map[int(c)] = c_index
+            num_class = len(label_map)
+            num_sample = annots['Y_te'].shape[0]//2
+            data = [[] for _ in range(num_class)]
+            for i in range(num_sample):
+                data[label_map[int(annots['Y_te'][i])]].append(annots['X_te'][i])
+
+        if self.partition == 'test':
+            label_map = {}
+            for c in annots['Y_te']:
+                if int(c) not in label_map:
+                    c_index = len(label_map)
+                    label_map[int(c)] = c_index
+            num_class = len(label_map)
+            num_sample = annots['Y_te'].shape[0]
+            data = [[] for _ in range(num_class)]
+            for i in range(num_sample//2,num_sample):
+                data[label_map[int(annots['Y_te'][i])]].append(annots['X_te'][i])
+
+        return data
+
+    def get_task_batch(self,
+                       num_tasks=5,
+                       num_ways=20,
+                       num_shots=1,
+                       num_queries=1,
+                       seed=None):
+        if seed is not None:
+            random.seed(seed)
+
+        # init task batch data
+        support_data, support_label, query_data, query_label = [], [], [], []
+
+        for _ in range(num_ways * num_shots):
+            data = np.zeros(shape=[num_tasks] + self.data_size,
+                            dtype='float32')
+            label = np.zeros(shape=[num_tasks],
+                                dtype='float32')
+            support_data.append(data)
+            support_label.append(label)
+        for _ in range(num_ways * num_queries):
+            data = np.zeros(shape=[num_tasks] + self.data_size,
+                            dtype='float32')
+            label = np.zeros(shape=[num_tasks],
+                                dtype='float32')
+            query_data.append(data)
+            query_label.append(label)
+
+        full_class_list = list(range(len(self.data)))
+
+        # for each task
+        for t_idx in range(num_tasks):
+            # define task by sampling classes (num_ways)
+            task_class_list = random.sample(full_class_list, num_ways)
+
+            # for each sampled class in task
+            for c_idx in range(num_ways):
+                # sample data for support and query (num_shots + num_queries)
+                class_data_list = random.sample(self.data[task_class_list[c_idx]], num_shots + num_queries)
+
+                # load sample for support set
+                for i_idx in range(num_shots):
+                    # set data
+                    support_data[i_idx + c_idx * num_shots][t_idx] = class_data_list[i_idx]
+                    support_label[i_idx + c_idx * num_shots][t_idx] = c_idx
+
+                # load sample for query set
+                for i_idx in range(num_queries):
+                    query_data[i_idx + c_idx * num_queries][t_idx] = class_data_list[num_shots + i_idx]
+                    query_label[i_idx + c_idx * num_queries][t_idx] = c_idx
+
+        # convert to tensor (num_tasks x (num_ways * (num_supports + num_queries)) x ...)
+        support_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in support_data], 1)
+        support_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in support_label], 1)
+        query_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in query_data], 1)
+        query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
+
+        full_data = torch.cat([support_data, query_data], 1)
+        full_label = torch.cat([support_label, query_label], 1)
+
+        return [full_data, full_label]
+
+
+
