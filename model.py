@@ -523,8 +523,9 @@ class GraphPool(nn.Module):
         return A, new_X, idx_batch
 
 class MLP(nn.Module):
-    def __init__(self,in_dim,hidden=96,ratio=[2,2,1,1]):
+    def __init__(self,in_dim,ratio=[2,2,1,1]):
         super(MLP, self).__init__()
+        hidden = in_dim//2
         # set layers
         self.conv_1 = nn.Sequential(nn.Conv2d(in_channels=in_dim,
                                               out_channels=hidden*ratio[0],

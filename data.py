@@ -593,10 +593,8 @@ class ImNetLoader(data.Dataset):
         query_data = torch.stack([torch.from_numpy(data).float().to(tt.arg.device) for data in query_data], 1)
         query_label = torch.stack([torch.from_numpy(label).float().to(tt.arg.device) for label in query_label], 1)
 
-        full_data = torch.cat([support_data, query_data], 1)
-        full_label = torch.cat([support_label, query_label], 1)
 
-        return [full_data, full_label]
+        return [support_data, support_label, query_data, query_label]
 
 
 

@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader,TieredImagenetLoader,Cub200Loader
+from data import MiniImagenetLoader,TieredImagenetLoader,Cub200Loader,ImNetLoader
 from model import EmbeddingImagenet, Unet,Unet2
 import shutil
 import os
@@ -151,6 +151,8 @@ if __name__ == '__main__':
     elif tt.arg.dataset == 'tiered':
         test_loader = TieredImagenetLoader(root=tt.arg.dataset_root, partition='test')
     elif tt.arg.dataset == 'cub':
+        test_loader = Cub200Loader(root=tt.arg.dataset_root, partition='test')
+    elif tt.arg.dataset == 'imnet':
         test_loader = Cub200Loader(root=tt.arg.dataset_root, partition='test')
     else:
         print('Unknown dataset!')

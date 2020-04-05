@@ -122,7 +122,7 @@ def _parse_opts():
 
     # device setting
     if arg.device is None:
-        arg.device = 'cuda:3' if torch.cuda.is_available() else 'cpu'
+        arg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     arg.device = torch.device(arg.device)
     arg.cuda = arg.device.type == 'cuda'
 

@@ -1,5 +1,5 @@
 from torchtools import *
-from data import MiniImagenetLoader,TieredImagenetLoader,CifarFsLoader,Cub200Loader
+from data import MiniImagenetLoader,TieredImagenetLoader,CifarFsLoader,Cub200Loader,ImNetLoader
 from model import EmbeddingImagenet, Unet,Unet2,wrn,ResNet
 import shutil
 import os
@@ -77,8 +77,11 @@ class ModelTrainer(object):
             self.unet_module.train()
 
             # (1) encode data
-            full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
-            full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
+            if tt.arg.dataset == 'imnet':
+                pass
+            else:
+                full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
+                full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
             one_hot_label = self.one_hot_encode(tt.arg.num_ways, support_label.long())
             query_padding = (1 / tt.arg.num_ways) * torch.ones([full_data.shape[0]] + [num_queries] + [tt.arg.num_ways],
                                                                device=one_hot_label.device)
@@ -207,7 +210,10 @@ class ModelTrainer(object):
             self.unet_module.eval()
 
             # (1) encode data
-            full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
+            if tt.arg.dataset == 'imnet':
+                pass
+            else:
+                full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
             full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
             one_hot_label = self.one_hot_encode(tt.arg.num_ways, support_label.long())
             query_padding = (1 / tt.arg.num_ways) * torch.ones([full_data.shape[0]] + [num_queries] + [tt.arg.num_ways],
@@ -313,9 +319,9 @@ def set_exp_name():
 
 if __name__ == '__main__':
 
-    tt.arg.device = 'cuda:7' if tt.arg.device is None else tt.arg.device
-    tt.arg.dataset_root = 'dataset'
-    tt.arg.dataset = 'cifar' if tt.arg.dataset is None else tt.arg.dataset
+    tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
+    tt.arg.dataset_root = 'D:\数据\迅雷下载'
+    tt.arg.dataset = 'imnet' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
     tt.arg.num_queries = tt.arg.num_ways*1
@@ -326,8 +332,8 @@ if __name__ == '__main__':
     tt.arg.num_gpus = 4
 
     # model parameter related
-    tt.arg.backbone = 'rn' # 'simple' 'wrn' 'rn'
-    tt.arg.emb_size = 128
+    tt.arg.backbone = 'simple' # 'simple' 'wrn' 'rn'
+    tt.arg.emb_size = 128 if tt.arg.dataset != 'imnet' else 1024
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
@@ -453,6 +459,9 @@ if __name__ == '__main__':
     elif tt.arg.dataset == 'cub':
         train_loader = Cub200Loader(root=tt.arg.dataset_root, partition='train')
         valid_loader = Cub200Loader(root=tt.arg.dataset_root, partition='val')
+    elif tt.arg.dataset == 'imnet':
+        train_loader = ImNetLoader(root=tt.arg.dataset_root, partition='train')
+        valid_loader = ImNetLoader(root=tt.arg.dataset_root, partition='val')
     else:
         print('Unknown dataset!')
         raise NameError('Unknown dataset!!!')
