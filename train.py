@@ -1,6 +1,6 @@
 from torchtools import *
 from data import MiniImagenetLoader,TieredImagenetLoader,CifarFsLoader,Cub200Loader,ImNetLoader
-from model import EmbeddingImagenet, Unet,Unet2,wrn,ResNet
+from model import EmbeddingImagenet, Unet,Unet2,wrn,ResNet,Dcompression
 import shutil
 import os
 import random
@@ -9,10 +9,13 @@ class ModelTrainer(object):
     def __init__(self,
                  enc_module,
                  unet_module,
+                 dcompression,
                  data_loader):
         # set encoder and unet
         self.enc_module = enc_module.to(tt.arg.device)
         self.unet_module = unet_module.to(tt.arg.device)
+        if tt.arg.dataset == 'imnet':
+            self.dcompression = dcompression.to(tt.arg.device)
 
 
         # get data loader
@@ -20,6 +23,8 @@ class ModelTrainer(object):
 
         # set module parameters
         self.module_params = list(self.enc_module.parameters()) + list(self.unet_module.parameters())
+        if tt.arg.dataset == 'imnet':
+            self.module_params += list(dcompression.parameters())
 
         # set optimizer
         self.optimizer = optim.Adam(params=self.module_params,
@@ -78,7 +83,7 @@ class ModelTrainer(object):
 
             # (1) encode data
             if tt.arg.dataset == 'imnet':
-                pass
+                full_data = self.dcompression(full_data)
             else:
                 full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
                 full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
@@ -333,7 +338,7 @@ if __name__ == '__main__':
 
     # model parameter related
     tt.arg.backbone = 'simple' # 'simple' 'wrn' 'rn'
-    tt.arg.emb_size = 128 if tt.arg.dataset != 'imnet' else 1024
+    tt.arg.emb_size = 128
     tt.arg.in_dim = tt.arg.emb_size + tt.arg.num_ways
 
     tt.arg.pool_mode = 'kn' if tt.arg.pool_mode is None else tt.arg.pool_mode # 'way'/'support'/'kn'
@@ -436,6 +441,7 @@ if __name__ == '__main__':
         enc_module = ResNet(tt.arg.emb_size)
     else:
         enc_module = EmbeddingImagenet(emb_size=tt.arg.emb_size)
+        dcompression = Dcompression(1024,tt.arg.emb_size)
     if tt.arg.transductive == False:
         if unet2_flag == False:
             unet_module = Unet(tt.arg.ks, tt.arg.in_dim, tt.arg.num_ways, 1)
@@ -473,6 +479,7 @@ if __name__ == '__main__':
     # create trainer
     trainer = ModelTrainer(enc_module=enc_module,
                            unet_module=unet_module,
+                           dcompression=dcompression,
                            data_loader=data_loader)
 
     trainer.train()

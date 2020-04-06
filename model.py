@@ -67,6 +67,13 @@ def conv1x1(in_planes, out_planes, stride=1):
     """1x1 convolution"""
     return nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, bias=False)
 
+class Dcompression(nn.Module):
+    def __init__(self, in_dim, out_dim):
+        super(Dcompression, self).__init__()
+        self.dc = nn.Linear(in_dim, out_dim)
+    def forward(self, x):
+        x = self.dc(x)
+        return x
 
 class BasicBlock(nn.Module):
     expansion = 1
