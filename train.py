@@ -214,7 +214,7 @@ class ModelTrainer(object):
                 pass
             else:
                 full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
-            full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
+                full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
             one_hot_label = self.one_hot_encode(tt.arg.num_ways, support_label.long())
             query_padding = (1 / tt.arg.num_ways) * torch.ones([full_data.shape[0]] + [num_queries] + [tt.arg.num_ways],
                                                                device=one_hot_label.device)
