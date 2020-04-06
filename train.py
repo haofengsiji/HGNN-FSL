@@ -216,7 +216,7 @@ class ModelTrainer(object):
 
             # (1) encode data
             if tt.arg.dataset == 'imnet':
-                pass
+                full_data = self.dcompression(full_data)
             else:
                 full_data = [self.enc_module(data.squeeze(1)) for data in full_data.chunk(full_data.size(1), dim=1)]
                 full_data = torch.stack(full_data, dim=1)  # batch_size x num_samples x featdim
