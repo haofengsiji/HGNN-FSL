@@ -167,6 +167,7 @@ class ModelTrainer(object):
                     'iteration': self.global_step,
                     'enc_module_state_dict': self.enc_module.state_dict(),
                     'unet_module_state_dict': self.unet_module.state_dict(),
+                    'dcompression_module_state_dict': self.dcompression.state_dict(),
                     'val_acc': val_acc,
                     'optimizer': self.optimizer.state_dict(),
                 }, is_best)
@@ -325,7 +326,7 @@ def set_exp_name():
 if __name__ == '__main__':
 
     tt.arg.device = 'cuda:0' if tt.arg.device is None else tt.arg.device
-    tt.arg.dataset_root = 'D:\数据\迅雷下载'
+    tt.arg.dataset_root = 'data'
     tt.arg.dataset = 'imnet' if tt.arg.dataset is None else tt.arg.dataset
     tt.arg.num_ways = 5 if tt.arg.num_ways is None else tt.arg.num_ways
     tt.arg.num_shots = 5 if tt.arg.num_shots is None else tt.arg.num_shots
