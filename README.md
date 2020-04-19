@@ -1,18 +1,5 @@
 # HGNN-FSL
-
-Code for paper *Hierarchical Graph Neural Networks for Few-Shot Learning*.[pdf]()
-
-## Abstract
-
-
-
-## Citation
-
-If you find this code useful you can cite us using the following bibTex:
-
-```
-
-```
+Hierarchical Graph Neural Networks for Few-Shot Learning
 
 ## Requirements
 
@@ -113,7 +100,7 @@ You can download our experiment results and trained models from [here](https://d
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
-|    GNN     |                     |
+|    GNN     |        69.45        |
 |    EGNN    |        70.98        |
 | (ours)HGNN |      **73.01**      |
 
@@ -121,7 +108,7 @@ You can download our experiment results and trained models from [here](https://d
 
 |   Model    | 5-way 5-shot acc(%) |
 | :--------: | :-----------------: |
-|    GNN*    |                     |
+|    GNN*    |        81.89        |
 |    EGNN    |        80.15        |
 | (ours)HGNN |      **83.34**      |
 
